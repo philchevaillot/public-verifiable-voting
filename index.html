@@ -1,0 +1,1182 @@
+<!--
+Public Verifiable Voting Prototype
+Author: Philippe Chevaillot
+GitHub: https://github.com/philchevaillot/public-verifiable-voting
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Public Verifiable Voting Prototype</title>
+<style>
+
+/* ── PAGE ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: monospace;
+  background: #eaeaea;
+  color: #111;
+  margin: 0;
+  padding: 1.5em 2em 3em;
+}
+
+/* ── FULL-WIDTH HEADER ────────────────────────────────────── */
+.page-header {
+  max-width: 1160px;
+  margin: 0 auto 1.4em;
+}
+
+.page-header h1 {
+  font-family: monospace;
+  font-size: 1.3em;
+  border-bottom: 2px solid #333;
+  padding-bottom: .4em;
+  margin: 0 0 .8em;
+  letter-spacing: .02em;
+}
+
+.disclaimer {
+  background: #fff8dc;
+  border: 1px solid #e0c040;
+  border-left: 5px solid #e0c040;
+  padding: .75em 1em;
+  font-size: .84em;
+  line-height: 1.55;
+}
+.disclaimer b { color: #7a5700; }
+
+/* ── SPLIT LAYOUT ─────────────────────────────────────────── */
+.split-layout {
+  max-width: 1160px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 2em;
+}
+
+/* ── PHONE COLUMN ─────────────────────────────────────────── */
+.phone-col {
+  flex: 0 0 auto;
+  width: 320px;
+}
+
+.phone-col-label {
+  font-size: .72em;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: .5em;
+}
+
+/* Outer phone shell */
+.phone-shell {
+  background: #1c1c1e;
+  border-radius: 44px;
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px #3a3a3c,
+    0 20px 60px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  position: relative;
+}
+
+/* Notch bar */
+.phone-shell::before {
+  content: "";
+  display: block;
+  width: 100px;
+  height: 22px;
+  background: #1c1c1e;
+  border-radius: 0 0 16px 16px;
+  margin: 0 auto 6px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Home indicator */
+.phone-shell::after {
+  content: "";
+  display: block;
+  width: 100px;
+  height: 4px;
+  background: #555;
+  border-radius: 2px;
+  margin: 8px auto 0;
+}
+
+/* Inner screen */
+.phone-screen {
+  background: #fff;
+  border-radius: 32px;
+  overflow-y: auto;
+  max-height: 580px;
+  padding: 1.2em 1em 1.4em;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: .88em;
+  line-height: 1.6;
+  position: relative;
+}
+
+/* ── BALLOT MODAL ─────────────────────────────────────────── */
+#ballotModal {
+  display: none;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,.55);
+  border-radius: 32px;
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2em;
+}
+#ballotModal.open { display: flex; }
+
+.ballot-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.28);
+  width: 100%;
+}
+
+.ballot-card-header {
+  background: #fff;
+  color: #1a3a5c;
+  border-top: 4px solid #1a3a5c;
+  padding: .85em 1em .7em;
+  font-size: .9em;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.35;
+  border-bottom: 1px solid #e0e8f0;
+}
+
+.ballot-card-body {
+  padding: 1em;
+  font-size: .85em;
+  line-height: 1.6;
+}
+
+.ballot-id {
+  color: #888;
+  font-size: .78em;
+  font-family: monospace;
+  margin-bottom: .8em;
+}
+
+.ballot-vote-label {
+  font-size: .72em;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #888;
+  margin-bottom: .25em;
+}
+
+.ballot-vote-value {
+  background: #f0f7ff;
+  border: 1px solid #b8d0e8;
+  border-radius: 8px;
+  padding: .5em .8em;
+  font-size: 1em;
+  font-weight: 700;
+  color: #1a3a5c;
+  margin-bottom: .8em;
+}
+
+.ballot-hash-pass { color: #1a7a1a; font-weight: 700; font-size: .85em; }
+.ballot-hash-fail { color: #c0392b; font-weight: 700; font-size: .85em; }
+
+.ballot-note {
+  color: #999;
+  font-size: .78em;
+  margin-top: .6em;
+  line-height: 1.45;
+}
+
+.ballot-close-btn {
+  display: block;
+  width: 100%;
+  background: #1a3a5c;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .55em;
+  margin-top: .9em;
+  font-family: inherit;
+  font-size: .9em;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ballot-close-btn:hover { background: #0d2540; }
+
+/* Status bar row inside screen */
+.phone-status-bar {
+  display: flex;
+  justify-content: space-between;
+  font-size: .7em;
+  color: #888;
+  margin-bottom: .8em;
+  padding: 0 .2em;
+}
+
+.phone-screen h2 {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin: 0 0 .8em;
+  color: #111;
+  letter-spacing: -.01em;
+}
+
+.phone-screen h3 {
+  font-size: .85em;
+  font-weight: 600;
+  color: #444;
+  margin: 1em 0 .4em;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.phone-screen label {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+  padding: .5em .6em;
+  border-radius: 8px;
+  margin-bottom: .2em;
+  cursor: pointer;
+  font-size: .95em;
+  transition: background .12s;
+}
+.phone-screen label:hover { background: #f2f2f7; }
+.phone-screen label input[type="radio"] { accent-color: #007aff; }
+
+.phone-screen .voter-name-row {
+  display: flex;
+  gap: .4em;
+  align-items: center;
+  margin-bottom: .4em;
+}
+
+.phone-screen .voter-name-row input {
+  flex: 1;
+  padding: .45em .6em;
+  border: 1px solid #d1d1d6;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: .95em;
+  background: #f2f2f7;
+}
+
+.phone-screen .voter-name-row button,
+.phone-screen .vote-btn {
+  background: #007aff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .45em .8em;
+  font-size: .88em;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+.phone-screen .voter-name-row button { background: #8e8e93; font-weight: 500; }
+.phone-screen .voter-name-row button:hover { background: #636366; }
+.phone-screen .vote-btn { width: 100%; padding: .6em; margin-top: .6em; font-size: .95em; }
+.phone-screen .vote-btn:hover:not(:disabled) { background: #0062cc; }
+.phone-screen .vote-btn:disabled { background: #a0c4f5; cursor: not-allowed; }
+
+#status {
+  font-size: .8em;
+  font-weight: 600;
+  color: #007aff;
+  min-height: 1.2em;
+  margin: .4em 0 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.phone-screen .my-vote-item {
+  background: #f2f2f7;
+  border-radius: 10px;
+  padding: .6em .8em;
+  margin-bottom: .5em;
+  font-size: .88em;
+}
+.phone-screen .my-vote-item b { color: #333; }
+.phone-screen .my-vote-item button {
+  margin-top: .4em;
+  background: #34c759;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: .3em .7em;
+  font-size: .82em;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 600;
+}
+.phone-screen .my-vote-item button:hover { background: #28a745; }
+
+/* override myVotes default hr */
+#myVotes hr { display: none; }
+
+/* countdown timer states */
+.reveal-timer          { color: #666; font-size: .9em; }
+.reveal-timer.ticking  { color: #e07000; font-weight: 600; }
+.reveal-timer.urgent   { color: #c0392b; font-weight: 700; }
+.reveal-timer.expired  { color: #999; }
+
+.my-vote-item button:disabled {
+  background: #b0b0b8;
+  cursor: not-allowed;
+  opacity: .7;
+}
+
+/* ── SYSTEM COLUMN ────────────────────────────────────────── */
+.system-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.system-col-label {
+  font-size: .72em;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: .5em;
+}
+
+.system-panel {
+  background: #f5f5f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 1.2em 1.4em;
+  font-family: monospace;
+  font-size: .85em;
+  line-height: 1.6;
+}
+
+.system-panel h2 {
+  font-size: 1em;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #333;
+  margin: 0 0 .8em;
+  padding-bottom: .4em;
+  border-bottom: 1px solid #bbb;
+}
+
+.system-panel h3 {
+  font-size: .88em;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #555;
+  margin: 1.2em 0 .4em;
+}
+
+.system-panel .status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ececec;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: .5em .8em;
+  margin-bottom: .8em;
+}
+
+.system-panel .status-badge {
+  font-weight: bold;
+  font-size: .9em;
+  letter-spacing: .05em;
+}
+.status-open  { color: #1a7a1a; }
+.status-closed { color: #c0392b; }
+
+.system-panel .controls { display: flex; gap: .5em; flex-wrap: wrap; }
+
+.system-panel .controls button {
+  background: #333;
+  color: #eee;
+  border: none;
+  border-radius: 4px;
+  padding: .35em .8em;
+  font-family: monospace;
+  font-size: .85em;
+  cursor: pointer;
+  letter-spacing: .03em;
+}
+.system-panel .controls button:hover { background: #111; }
+.system-panel .controls .btn-danger { background: #8b1a1a; }
+.system-panel .controls .btn-danger:hover { background: #5c0e0e; }
+
+.system-panel .ledger-note {
+  background: #fff8dc;
+  border-left: 3px solid #e0c040;
+  padding: .4em .6em;
+  font-size: .82em;
+  margin-bottom: .6em;
+  line-height: 1.4;
+}
+
+/* ── SYSTEM EVENT LOG ─────────────────────────────────────── */
+#systemLog {
+  font-family: monospace;
+  font-size: .78em;
+  line-height: 1.5;
+  margin-bottom: .8em;
+  min-height: 0;
+}
+#systemLog:empty { display: none; }
+.sys-entry {
+  display: flex;
+  gap: .5em;
+  padding: .18em 0;
+  border-bottom: 1px solid #e8e8e0;
+  color: #444;
+}
+.sys-entry:last-child { border-bottom: none; }
+.sys-ts  { color: #aaa; flex-shrink: 0; }
+.sys-dot { flex-shrink: 0; }
+.sys-dot.blue  { color: #007aff; }
+.sys-dot.green { color: #28a745; }
+.sys-dot.amber { color: #e07000; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: .82em;
+  font-family: monospace;
+}
+td, th {
+  border: 1px solid #ccc;
+  padding: .35em .55em;
+  word-break: break-all;
+}
+th {
+  background: #ddd;
+  font-size: .8em;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+#tally { margin-top: .4em; }
+
+/* ── FULL-WIDTH TRANSPARENCY SECTION ──────────────────────── */
+.transparency-section {
+  max-width: 1160px;
+  margin: 2em auto 0;
+  background: #f5f5f0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 1.4em 1.6em;
+  font-family: monospace;
+  font-size: .85em;
+  line-height: 1.6;
+}
+
+.transparency-section h2 {
+  font-size: 1em;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin: 0 0 .8em;
+  padding-bottom: .4em;
+  border-bottom: 1px solid #bbb;
+  color: #333;
+}
+
+.transparency-section h3 {
+  font-size: .88em;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #555;
+  margin: 1.2em 0 .4em;
+}
+
+.transparency-section ul,
+.transparency-section ol {
+  margin: 0 0 .6em;
+  padding-left: 1.4em;
+}
+.transparency-section li { margin-bottom: .4em; }
+
+.transparency-box {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: 1px solid #444;
+  padding: 1em 1.2em;
+  margin-top: .6em;
+  font-size: .82em;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  overflow-x: auto;
+}
+.transparency-box .label  { color: #9cdcfe; }
+.transparency-box .value  { color: #ce9178; word-break: break-all; }
+.transparency-box .safe   { color: #4ec9b0; }
+.transparency-box .danger { color: #f44747; font-weight: bold; }
+.transparency-box .note   { color: #608b4e; }
+.transparency-box .warn   { color: #f44747; font-weight: bold; }
+
+.how-to-break {
+  background: #fff0f0;
+  border: 1px solid #e08080;
+  border-left: 4px solid #e08080;
+  padding: .7em .9em;
+  margin: .6em 0;
+  font-size: .85em;
+  line-height: 1.55;
+}
+
+.real-world {
+  background: #f0fff0;
+  border: 1px solid #80c080;
+  border-left: 4px solid #80c080;
+  padding: .7em .9em;
+  margin: .6em 0;
+  font-size: .85em;
+  line-height: 1.55;
+}
+
+/* ── RESPONSIVE STACK ─────────────────────────────────────── */
+@media (max-width: 720px) {
+  .split-layout { flex-direction: column; }
+  .phone-col { width: 100%; }
+  .phone-shell { border-radius: 28px; }
+  .phone-screen { border-radius: 20px; max-height: none; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ FULL-WIDTH HEADER ══════════════════ -->
+<div class="page-header">
+  <h1>Public Verifiable Voting Prototype</h1>
+  <div class="disclaimer">
+    <b>Demo notice:</b> This prototype uses <b>real RSA-2048-OAEP asymmetric encryption</b> and <b>real SHA-256 hashes</b>
+    via the browser's Web Crypto API. Votes are encrypted under the election's <b>public key</b> — anyone can encrypt,
+    but only the holder of the <b>private key</b> can decrypt. In this demo the private key is stored in
+    <code>localStorage</code> (the intentional weak point). In a real deployment it would never leave a server.
+    See the <a href="#transparency">Security Transparency</a> section below.
+  </div>
+</div>
+
+<!-- ══════════════════ SPLIT LAYOUT ══════════════════════ -->
+<div class="split-layout">
+
+  <!-- ── LEFT: PHONE / VOTER APP ── -->
+  <div class="phone-col">
+    <div class="phone-col-label">Voter App — citizen view</div>
+    <div class="phone-shell">
+      <div class="phone-screen">
+
+        <!-- Ballot verification modal -->
+        <div id="ballotModal">
+          <div class="ballot-card">
+            <div class="ballot-card-header">&#128274; You are accessing your ballot</div>
+            <div class="ballot-card-body" id="ballotModalBody"></div>
+          </div>
+        </div>
+
+        <div class="phone-status-bar">
+          <span id="phoneTime">9:41</span>
+          <span>&#9679;&#9679;&#9679; &#9641;</span>
+        </div>
+
+        <h2>Cast Your Vote</h2>
+
+        <h3>Voter</h3>
+        <div class="voter-name-row">
+          <input id="name" placeholder="Voter name">
+          <button onclick="randomName()">Random</button>
+        </div>
+
+        <h3>Candidates</h3>
+        <div id="candidates"></div>
+
+        <button class="vote-btn" onclick="vote()">Submit Vote</button>
+        <p id="status"></p>
+
+        <h3>My Votes</h3>
+        <div id="myVotes"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: SYSTEM VIEW ── -->
+  <div class="system-col">
+    <div class="system-col-label">System View — public system view</div>
+    <div class="system-panel">
+
+      <h2>&#9881; Election Control</h2>
+
+      <div class="status-row">
+        <span>Status: <span id="electionStatus" class="status-badge status-open">Open</span></span>
+        <div class="controls">
+          <button onclick="closeElection()">Close Election</button>
+          <button class="btn-danger" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <div id="systemLog"></div>
+
+      <h3>Public Ledger</h3>
+      <div class="ledger-note">
+        RSA-OAEP ciphertext — unreadable without the private key.
+        SHA-256 hashes allow independent tamper detection.
+      </div>
+      <div id="ledger"></div>
+
+      <h3>Tally</h3>
+      <div id="tally"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════ SECURITY TRANSPARENCY ═════════════ -->
+<div class="transparency-section">
+
+  <h2 id="transparency">&#128274; Security Transparency</h2>
+
+  <h3>How the crypto works</h3>
+  <ul>
+    <li>
+      <b>Key pair:</b> At election start, an RSA-2048 key pair is generated with <code>crypto.subtle.generateKey</code>.
+      The <em>public key</em> is shared openly — any voter uses it to encrypt their vote.
+      The <em>private key</em> is held by the election authority and used only at close to decrypt and tally.
+    </li>
+    <li>
+      <b>Encryption:</b> Each vote is encrypted with <code>RSA-OAEP</code> (SHA-256) under the public key.
+      Without the private key, the ciphertext is computationally infeasible to reverse.
+      There is no IV or symmetric layer — RSA-OAEP provides its own randomisation internally.
+    </li>
+    <li>
+      <b>Hashing:</b> Each ledger entry's hash is <code>SHA-256(id + encryptedVote + timestamp)</code>,
+      computed with <code>crypto.subtle.digest</code>. Anyone can recompute it to detect tampering.
+    </li>
+  </ul>
+
+  <h3>The demo limitation — where the private key lives</h3>
+
+  <div class="how-to-break">
+    <b>How to "break" this demo:</b><br>
+    1. Open DevTools (F12) &rarr; Application &rarr; Local Storage &rarr; this page<br>
+    2. Find the key named <code>electionPrivateKey</code> — that is the RSA private key as a JWK.<br>
+    3. Copy it into the console and run:<br>
+    <code>&nbsp;&nbsp;const pk = await crypto.subtle.importKey("jwk", &lt;paste JWK&gt;, {name:"RSA-OAEP", hash:"SHA-256"}, false, ["decrypt"]);</code><br>
+    <code>&nbsp;&nbsp;const plain = await crypto.subtle.decrypt({name:"RSA-OAEP"}, pk, Uint8Array.from(atob(&lt;encrypted&gt;), c=&gt;c.charCodeAt(0)));</code><br>
+    <code>&nbsp;&nbsp;new TextDecoder().decode(plain); // reveals the vote</code><br><br>
+    This works <b>only because there is no server</b>. The private key had nowhere else to go.
+    The public key being visible is <em>not</em> a vulnerability — RSA public keys are always public.
+  </div>
+
+  <div class="real-world">
+    <b>What a real system would do differently:</b><br>
+    In a production deployment the RSA key pair would be generated server-side.
+    The public key would be published openly (anyone can encrypt). The private key would
+    never be transmitted to the browser — it lives only in the server's memory or an HSM.
+    After the election closes, the authority decrypts server-side and publishes the plaintext votes
+    alongside a cryptographic proof, so any third party can independently re-tally.
+    Inspecting <code>localStorage</code>, the network tab, or any client-side storage would
+    reveal only ciphertext and the public key — neither of which helps an attacker.
+  </div>
+
+  <h3>Live key inspector</h3>
+  <div class="transparency-box" id="keyInspector">Initialising…</div>
+
+  <h3>Verification steps (open standard)</h3>
+  <ol>
+    <li>Record the ledger entry: <code>(id, encryptedVote, hash)</code></li>
+    <li>Recompute hash = SHA-256(id + encryptedVote + timestamp) and confirm it matches the published value.</li>
+    <li>After the election closes and the authority publishes the private key: decrypt each entry and confirm the plaintext vote.</li>
+    <li>Sum all decrypted votes independently to reproduce the tally without trusting the authority's count.</li>
+  </ol>
+
+</div>
+
+<script>
+
+// ===================== CONFIG =====================
+const CANDIDATES = [
+  "😺 Cat Union",
+  "🐶 Good Boy Alliance",
+  "🤖 AI Overlords",
+  "🥔 Potato Front",
+  "⚪ Blank Vote"
+];
+
+const MAX_VOTES = 5;
+const REVEAL_DURATION = 300000;
+
+// ===================== STORAGE =====================
+function getLedger(){ return JSON.parse(localStorage.getItem("ledger")||"[]"); }
+function setLedger(l){ localStorage.setItem("ledger", JSON.stringify(l)); }
+function isClosed(){ return localStorage.getItem("closed")==="true"; }
+function setClosed(v){ localStorage.setItem("closed", v); }
+
+// ===================== RSA-OAEP KEY MANAGEMENT =====================
+
+const RSA_PARAMS = {
+  name: "RSA-OAEP",
+  modulusLength: 2048,
+  publicExponent: new Uint8Array([1, 0, 1]),
+  hash: "SHA-256"
+};
+
+let _publicKey  = null;
+let _privateKey = null;
+let _countdownInterval = null;
+
+async function getKeyPair(){
+  if(_publicKey && _privateKey) return { publicKey: _publicKey, privateKey: _privateKey };
+
+  const storedPub  = localStorage.getItem("electionPublicKey");
+  const storedPriv = localStorage.getItem("electionPrivateKey");
+
+  if(storedPub && storedPriv){
+    _publicKey  = await crypto.subtle.importKey("jwk", JSON.parse(storedPub),  RSA_PARAMS, true, ["encrypt"]);
+    _privateKey = await crypto.subtle.importKey("jwk", JSON.parse(storedPriv), RSA_PARAMS, true, ["decrypt"]);
+    return { publicKey: _publicKey, privateKey: _privateKey };
+  }
+
+  const pair = await crypto.subtle.generateKey(RSA_PARAMS, true, ["encrypt","decrypt"]);
+
+  const pubJwk  = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const privJwk = await crypto.subtle.exportKey("jwk", pair.privateKey);
+
+  localStorage.setItem("electionPublicKey",  JSON.stringify(pubJwk));
+  localStorage.setItem("electionPrivateKey", JSON.stringify(privJwk));
+
+  _publicKey  = pair.publicKey;
+  _privateKey = pair.privateKey;
+  return { publicKey: _publicKey, privateKey: _privateKey };
+}
+
+// ===================== ENCRYPT / DECRYPT =====================
+
+async function encryptVote(vote){
+  const { publicKey } = await getKeyPair();
+  const encoded = new TextEncoder().encode(vote);
+  const cipher  = await crypto.subtle.encrypt({ name:"RSA-OAEP" }, publicKey, encoded);
+  return btoa(String.fromCharCode(...new Uint8Array(cipher)));
+}
+
+async function decryptVote(encB64){
+  const { privateKey } = await getKeyPair();
+  const cipher  = Uint8Array.from(atob(encB64), c => c.charCodeAt(0));
+  const plain   = await crypto.subtle.decrypt({ name:"RSA-OAEP" }, privateKey, cipher);
+  return new TextDecoder().decode(plain);
+}
+
+// ===================== SHA-256 HASH =====================
+
+async function sha256hex(str){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
+
+// ===================== UTIL =====================
+function randomName(){
+  document.getElementById("name").value = "Voter_" + Math.floor(Math.random()*10000);
+}
+
+function genId(){
+  return "TID_" + Math.random().toString(36).substring(2,8).toUpperCase();
+}
+
+function showStatus(msg, color, duration){
+  const s = document.getElementById("status");
+  s.innerText = msg;
+  s.style.color = color || "#c0392b";
+  setTimeout(() => {
+    if(s.innerText === msg){ s.innerText = ""; s.style.color = "#007aff"; }
+  }, duration || 3000);
+}
+
+function openBallotModal(bodyHtml){
+  const screen = document.querySelector('.phone-screen');
+  screen.scrollTop = 0;
+  document.getElementById("ballotModalBody").innerHTML = bodyHtml;
+  document.getElementById("ballotModal").classList.add("open");
+}
+
+function closeBallotModal(){
+  document.getElementById("ballotModal").classList.remove("open");
+}
+
+function updatePhoneClock(){
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,"0");
+  const m = now.getMinutes().toString().padStart(2,"0");
+  const el = document.getElementById("phoneTime");
+  if(el) el.textContent = h + ":" + m;
+}
+
+// ===================== INIT =====================
+async function init(){
+  document.getElementById("status").innerText = "Generating RSA-2048 key pair…";
+  await getKeyPair();
+  document.getElementById("status").innerText = "";
+
+  if(!localStorage.getItem("ledger")){
+    document.getElementById("status").innerText = "Encrypting demo votes…";
+    await preload();
+    document.getElementById("status").innerText = "";
+  }
+
+  renderCandidates();
+  renderLedger();
+  renderMyVotes();
+  renderStatus();
+  await renderTally();
+  randomName();
+  renderKeyInspector();
+  updatePhoneClock();
+  setInterval(updatePhoneClock, 30000);
+}
+
+// ===================== PRELOAD =====================
+async function preload(){
+  const l = [];
+  for(let i = 0; i < 3; i++){
+    const vote = CANDIDATES[Math.floor(Math.random()*CANDIDATES.length)];
+    const enc  = await encryptVote(vote);
+    const t    = Date.now() - Math.floor(Math.random()*60000);
+    const id   = "PRE_" + i;
+    const h    = await sha256hex(id + enc + t);
+    l.push({ tempId:id, encrypted:enc, timestamp:t, hash:h, owned:false });
+  }
+  setLedger(l);
+}
+
+// ===================== CANDIDATES =====================
+function renderCandidates(){
+  const d = document.getElementById("candidates");
+  d.innerHTML = "";
+  CANDIDATES.forEach(c => {
+    d.innerHTML += `<label><input type="radio" name="vote" value="${c}"> ${c}</label>`;
+  });
+}
+
+function renderStatus(){
+  const el = document.getElementById("electionStatus");
+  const closed = isClosed();
+  el.innerText = closed ? "Closed" : "Open";
+  el.className = "status-badge " + (closed ? "status-closed" : "status-open");
+}
+
+// ===================== SYSTEM EVENT LOG =====================
+function logSystem(msg, colour){
+  const log = document.getElementById("systemLog");
+  if(!log) return;
+  const now = new Date();
+  const ts = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(n => n.toString().padStart(2, "0")).join(":");
+
+  const tsEl  = document.createElement("span");
+  tsEl.className = "sys-ts";
+  tsEl.textContent = "[" + ts + "]";
+
+  const dotEl = document.createElement("span");
+  dotEl.className = "sys-dot " + (colour || "blue");
+  dotEl.textContent = "\u25CF";
+
+  const msgEl = document.createElement("span");
+  msgEl.textContent = msg;
+
+  const entry = document.createElement("div");
+  entry.className = "sys-entry";
+  entry.appendChild(tsEl);
+  entry.appendChild(dotEl);
+  entry.appendChild(msgEl);
+  log.prepend(entry);
+}
+
+// ===================== VOTE =====================
+async function vote(){
+  if(isClosed()){ showStatus("Election is closed."); return; }
+
+  const ledger = getLedger();
+  if(ledger.filter(x => x.owned).length >= MAX_VOTES){
+    showStatus("Max demo votes reached.");
+    return;
+  }
+
+  const sel = document.querySelector('input[name="vote"]:checked');
+  if(!sel){ showStatus("Please select a candidate."); return; }
+
+  const voteBtn = document.querySelector('.vote-btn');
+  voteBtn.disabled = true;
+
+  try {
+    const tempId  = genId();
+    const voteVal = sel.value;
+    const time    = Date.now();
+
+    document.getElementById("status").innerText = "Encrypting with public key…";
+
+    const enc = await encryptVote(voteVal);
+    const h   = await sha256hex(tempId + enc + time);
+    logSystem("Vote encrypted with public key", "blue");
+
+    document.getElementById("status").innerText = "Waiting for publication…";
+    await new Promise(r => setTimeout(r, 1200));
+
+    ledger.push({
+      tempId,
+      encrypted: enc,
+      timestamp: time,
+      hash: h,
+      owned: true,
+      revealDeadline: time + REVEAL_DURATION
+    });
+
+    setLedger(ledger);
+    logSystem("Ballot added to public ledger", "green");
+    document.getElementById("status").innerText = "Vote published \u2713 " + tempId;
+    setTimeout(() => {
+      const s = document.getElementById("status");
+      if(s) s.innerText = "";
+    }, 3000);
+
+    renderLedger();
+    renderMyVotes();
+    await renderTally();
+    renderKeyInspector();
+  } finally {
+    voteBtn.disabled = false;
+  }
+}
+
+// ===================== LEDGER =====================
+function renderLedger(){
+  const l = getLedger();
+  let html = "<table><tr><th>ID</th><th>Encrypted (RSA-OAEP)</th><th>SHA-256 Hash</th></tr>";
+  l.forEach(x => {
+    html += `<tr>
+      <td>${x.tempId}</td>
+      <td>${x.encrypted.substring(0,24)}…</td>
+      <td>${x.hash.substring(0,24)}…</td>
+    </tr>`;
+  });
+  html += "</table>";
+  document.getElementById("ledger").innerHTML = html;
+}
+
+// ===================== MY VOTES =====================
+function renderMyVotes(){
+  clearInterval(_countdownInterval);
+  _countdownInterval = null;
+
+  const l = getLedger().filter(x => x.owned);
+  let html = "";
+  l.forEach(x => {
+    const now = Date.now();
+    let revealText = "After election closes";
+    let btnDisabled = "";
+    if(isClosed()){
+      const rem = Math.ceil((x.revealDeadline - now) / 1000);
+      if(rem > 0){
+        revealText = rem + "s remaining";
+      } else {
+        revealText = "Window expired";
+        btnDisabled = " disabled";
+      }
+    }
+
+    html += `<div class="my-vote-item" id="vote-card-${x.tempId}">
+      <b>ID:</b> ${x.tempId}<br>
+      <span class="reveal-timer" id="reveal-timer-${x.tempId}">Reveal window: ${revealText}</span><br>
+      <button id="verify-btn-${x.tempId}" onclick="verify('${x.tempId}')"${btnDisabled}>Decrypt &amp; Verify</button>
+    </div>`;
+  });
+  document.getElementById("myVotes").innerHTML = html || "<i style='color:#999;font-size:.9em'>No votes cast yet.</i>";
+
+  if(isClosed()){
+    const now = Date.now();
+    const hasActive = l.some(x => x.revealDeadline > now);
+    if(hasActive) startCountdown(l);
+  }
+}
+
+// ===================== COUNTDOWN =====================
+function startCountdown(ownedVotes){
+  if(!ownedVotes || ownedVotes.length === 0) return;
+
+  function tick(){
+    const now = Date.now();
+    let anyActive = false;
+
+    ownedVotes.forEach(x => {
+      const timerEl = document.getElementById("reveal-timer-" + x.tempId);
+      const btnEl   = document.getElementById("verify-btn-"   + x.tempId);
+      if(!timerEl || !btnEl) return;
+
+      const rem = Math.ceil((x.revealDeadline - now) / 1000);
+      if(rem > 0){
+        anyActive = true;
+        timerEl.textContent = "Reveal window: " + rem + "s remaining";
+        timerEl.className = "reveal-timer " + (rem <= 8 ? "urgent" : "ticking");
+        btnEl.disabled = false;
+      } else {
+        timerEl.textContent = "Reveal window: Window expired";
+        timerEl.className = "reveal-timer expired";
+        btnEl.disabled = true;
+      }
+    });
+
+    if(!anyActive){
+      clearInterval(_countdownInterval);
+      _countdownInterval = null;
+    }
+  }
+
+  tick();
+  _countdownInterval = setInterval(tick, 1000);
+}
+
+// ===================== VERIFY =====================
+async function verify(id){
+  const l = getLedger();
+  const v = l.find(x => x.tempId === id);
+  if(!v)          { showStatus("Entry not found."); return; }
+  if(!v.owned)    { showStatus("Not your vote."); return; }
+  if(!isClosed()) { showStatus("Wait until the election closes."); return; }
+  if(Date.now() > v.revealDeadline){ showStatus("Reveal window has expired."); return; }
+
+  const plain      = await decryptVote(v.encrypted);
+  const recomputed = await sha256hex(v.tempId + v.encrypted + v.timestamp);
+  const hashMatch  = recomputed === v.hash;
+  const remSec     = Math.max(0, Math.ceil((v.revealDeadline - Date.now()) / 1000));
+
+  const hashLine = hashMatch
+    ? `<div class="ballot-hash-pass">&#10003; Hash verified — ledger entry is intact</div>`
+    : `<div class="ballot-hash-fail">&#10007; Hash MISMATCH — ledger may be tampered</div>`;
+
+  openBallotModal(`
+    <div class="ballot-id">Ballot ID: ${v.tempId}</div>
+    <div class="ballot-vote-label">Your vote</div>
+    <div class="ballot-vote-value">${plain}</div>
+    ${hashLine}
+    <div class="ballot-note">
+      Decrypted with your private key.<br>
+      Window closes in ${remSec}s.
+    </div>
+    <button class="ballot-close-btn" onclick="closeBallotModal()">Close</button>
+  `);
+}
+
+// ===================== CLOSE =====================
+function closeElection(){
+  if(isClosed()) return;
+  clearInterval(_countdownInterval);
+  _countdownInterval = null;
+  setClosed(true);
+  renderStatus();
+  renderMyVotes();
+  logSystem("Private key used to compute tally", "amber");
+  renderTally();
+  renderKeyInspector();
+}
+
+// ===================== TALLY =====================
+async function renderTally(){
+  const el = document.getElementById("tally");
+  if(!isClosed()){
+    el.innerHTML = "<span style='color:#888;font-size:.9em'>Hidden until election closes</span>";
+    return;
+  }
+
+  el.innerText = "Decrypting votes with private key…";
+
+  const l = getLedger();
+  const count = {};
+  CANDIDATES.forEach(c => count[c] = 0);
+
+  for(const x of l){
+    try {
+      const plain = await decryptVote(x.encrypted);
+      if(count[plain] !== undefined) count[plain]++;
+    } catch(e){
+      // entry from a different key — skip
+    }
+  }
+
+  let out = "<table><tr><th>Candidate</th><th>Votes</th></tr>";
+  for(const k in count){
+    out += `<tr><td>${k}</td><td>${count[k]}</td></tr>`;
+  }
+  out += "</table>";
+  el.innerHTML = out;
+}
+
+// ===================== KEY INSPECTOR =====================
+async function renderKeyInspector(){
+  const box     = document.getElementById("keyInspector");
+  const rawPub  = localStorage.getItem("electionPublicKey");
+  const rawPriv = localStorage.getItem("electionPrivateKey");
+
+  if(!rawPub || !rawPriv){
+    box.textContent = "Key pair not yet generated.";
+    return;
+  }
+
+  const pub  = JSON.parse(rawPub);
+  const priv = JSON.parse(rawPriv);
+
+  box.innerHTML =
+`<span class="safe">PUBLIC KEY — safe to share openly (used by voters to encrypt)</span>
+<span class="label">Algorithm:</span> <span class="value">RSA-OAEP / SHA-256</span>
+<span class="label">Modulus (n, first 60 chars):</span>
+<span class="value">${pub.n.substring(0,60)}…</span>
+<span class="label">Public exponent (e):</span> <span class="value">${pub.e}</span>
+<span class="note">// This key is intentionally public. Anyone can use it to encrypt a vote.
+// It is mathematically infeasible to derive the private key from this value.</span>
+
+<span class="danger">PRIVATE KEY — this is the demo's exploitable secret</span>
+<span class="warn">⚠ Stored in localStorage → DevTools → Application → electionPrivateKey</span>
+<span class="label">Private exponent (d, first 60 chars):</span>
+<span class="value">${priv.d.substring(0,60)}…</span>
+<span class="note">// In a real server-client system, this value would be generated server-side,
+// never exported, and never transmitted to any browser.
+// Here it must live in localStorage because there is no server.
+// This is the only reason the demo is breakable — and it is deliberate.</span>
+
+<span class="label">Election status:</span> <span class="value">${isClosed() ? "CLOSED — private key active for tallying" : "OPEN — private key dormant (decryption blocked by UI)"}</span>`;
+}
+
+// ===================== RESET =====================
+function resetAll(){
+  clearInterval(_countdownInterval);
+  _countdownInterval = null;
+  closeBallotModal();
+  const sysLog = document.getElementById("systemLog");
+  if(sysLog) sysLog.innerHTML = "";
+  _publicKey  = null;
+  _privateKey = null;
+  localStorage.clear();
+  document.getElementById("status").innerText = "";
+  document.getElementById("status").style.color = "#007aff";
+  init();
+}
+
+// ===================== START =====================
+init();
+
+</script>
+
+
+<hr>
+<p style="font-size:.75em;color:#666;">
+Prototype by Philippe Chevaillot —
+<a href="https://github.com/philchevaillot/public-verifiable-voting" target="_blank">GitHub Repository</a>
+</p>
+
+</body>
+</html>
