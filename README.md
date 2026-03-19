@@ -1,5 +1,14 @@
 # Public Verifiable Voting System
 
+This prototype demonstrates a path toward publicly verifiable elections, including municipal referendums and organizational governance.
+
+It explores how cryptography can make election results independently auditable by anyone, without compromising vote secrecy.
+
+## Live Demo
+https://philchevaillot.github.io/public-verifiable-voting/
+
+> Note: This demo decrypts individual ballots for clarity. Real systems use homomorphic tallying or threshold decryption to avoid exposing individual votes.
+
 ## Overview
 
 This project proposes a publicly verifiable voting system designed to eliminate the need to trust centralized counting authorities while preserving strict vote secrecy.
