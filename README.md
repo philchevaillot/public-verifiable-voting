@@ -9,6 +9,8 @@ https://philchevaillot.github.io/public-verifiable-voting/
 
 > Note: This demo decrypts individual ballots for clarity. Real systems use homomorphic tallying or threshold decryption to avoid exposing individual votes.
 
+> Note: This demo allows multiple votes per user to simulate participation. Real systems enforce one-person-one-vote through identity or credential verification.
+
 ## Overview
 
 This project proposes a publicly verifiable voting system designed to eliminate the need to trust centralized counting authorities while preserving strict vote secrecy.
