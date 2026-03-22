@@ -1,8 +1,27 @@
 # Public Verifiable Voting System
 
-This prototype demonstrates a path toward publicly verifiable elections, including municipal referendums and organizational governance.
+This project demonstrates a minimal, browser-based prototype of a **publicly verifiable voting system**, where:
 
-It explores how cryptography can make election results independently auditable by anyone, without compromising vote secrecy.
+- all ballots are **encrypted client-side**
+- all votes are published to a **public ledger**
+- the final tally can be **independently recomputed by anyone**
+- each voter retains a **private, single-use verification right**
+
+The goal is to explore how modern cryptography can enable **trust-minimized elections**, where correctness does not depend on trusting a central authority.
+
+---
+
+## What this prototype shows
+
+This demo implements a simplified but concrete version of an end-to-end verifiable voting model:
+
+- **Public-key encryption (RSA-OAEP)** for ballot secrecy  
+- **Public append-only ledger** for transparency  
+- **Post-election verification window** for voter auditability  
+- **Single-use private ballot reveal** (simulating real verification rights)  
+- **Independent tally recomputation** from published data  
+
+> The system is intentionally client-side only to make all mechanisms visible and auditable.
 
 ---
 
@@ -11,6 +30,12 @@ It explores how cryptography can make election results independently auditable b
 https://philchevaillot.github.io/public-verifiable-voting/
 
 > Note: This demo decrypts individual ballots for clarity. Real systems use homomorphic tallying or threshold decryption to avoid exposing individual votes.
+
+> Demo constraints:
+> - one ballot per device/session  
+> - verification only available after election closure  
+> - global verification window  
+> - verification right is single-use  
 
 ---
 
