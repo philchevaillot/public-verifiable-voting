@@ -711,8 +711,15 @@ const CANDIDATES = [
   "⚪ Blank Vote"
 ];
 
-const MAX_VOTES = 5;
 const REVEAL_DURATION = 300000;
+
+// ===================== DEVICE IDENTITY (simulated) =====================
+function generateOne(){
+  return (crypto.randomUUID ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36));
+}
+const DEVICE_ID = localStorage.getItem("deviceId") ||
+  (() => { const id = generateOne(); localStorage.setItem("deviceId", id); return id; })();
 
 // ===================== STORAGE =====================
 function getLedger(){ return JSON.parse(localStorage.getItem("ledger")||"[]"); }
@@ -903,8 +910,8 @@ async function vote(){
   if(isClosed()){ showStatus("Election is closed."); return; }
 
   const ledger = getLedger();
-  if(ledger.filter(x => x.owned).length >= MAX_VOTES){
-    showStatus("Max demo votes reached.");
+  if(ledger.some(x => x.owned)){
+    showStatus("This demo device has already cast its ballot.");
     return;
   }
 
@@ -934,7 +941,7 @@ async function vote(){
       timestamp: time,
       hash: h,
       owned: true,
-      revealDeadline: time + REVEAL_DURATION
+      revealConsumed: false
     });
 
     setLedger(ledger);
@@ -975,63 +982,88 @@ function renderMyVotes(){
   _countdownInterval = null;
 
   const l = getLedger().filter(x => x.owned);
+  const closed = isClosed();
+  const globalDeadline = parseInt(localStorage.getItem("verificationEndsAt") || "0", 10);
   let html = "";
-  l.forEach(x => {
+
+  if(closed && globalDeadline){
     const now = Date.now();
-    let revealText = "After election closes";
-    let btnDisabled = "";
-    if(isClosed()){
-      const rem = Math.ceil((x.revealDeadline - now) / 1000);
+    const rem = Math.ceil((globalDeadline - now) / 1000);
+    const bannerText = rem > 0
+      ? "Verification window: " + rem + "s remaining"
+      : "Verification window: expired";
+    html += `<div class="reveal-timer ${rem > 0 ? "ticking" : "expired"}" id="global-reveal-timer" style="margin-bottom:.5em">${bannerText}</div>`;
+  }
+
+  l.forEach(x => {
+    let btnDisabled = " disabled";
+    let btnLabel = "After election closes";
+
+    if(closed){
+      const rem = Math.ceil((globalDeadline - Date.now()) / 1000);
       if(rem > 0){
-        revealText = rem + "s remaining";
+        if(x.revealConsumed){
+          btnLabel = "Consumed";
+        } else {
+          btnLabel = "Available";
+          btnDisabled = "";
+        }
       } else {
-        revealText = "Window expired";
-        btnDisabled = " disabled";
+        btnLabel = "Expired";
       }
     }
 
     html += `<div class="my-vote-item" id="vote-card-${x.tempId}">
       <b>ID:</b> ${x.tempId}<br>
-      <span class="reveal-timer" id="reveal-timer-${x.tempId}">Reveal window: ${revealText}</span><br>
-      <button id="verify-btn-${x.tempId}" onclick="verify('${x.tempId}')"${btnDisabled}>Decrypt &amp; Verify</button>
+      <button id="verify-btn-${x.tempId}" onclick="verify('${x.tempId}')"${btnDisabled}>${btnLabel}</button>
     </div>`;
   });
-  document.getElementById("myVotes").innerHTML = html || "<i style='color:#999;font-size:.9em'>No votes cast yet.</i>";
 
-  if(isClosed()){
-    const now = Date.now();
-    const hasActive = l.some(x => x.revealDeadline > now);
-    if(hasActive) startCountdown(l);
+  document.getElementById("myVotes").innerHTML =
+    html || "<i style='color:#999;font-size:.9em'>No votes cast yet.</i>";
+
+  if(closed && globalDeadline && Date.now() < globalDeadline){
+    startCountdown(l);
   }
 }
 
 // ===================== COUNTDOWN =====================
 function startCountdown(ownedVotes){
-  if(!ownedVotes || ownedVotes.length === 0) return;
-
   function tick(){
     const now = Date.now();
-    let anyActive = false;
+    const globalDeadline = parseInt(localStorage.getItem("verificationEndsAt") || "0", 10);
+    const rem = Math.ceil((globalDeadline - now) / 1000);
+    const timerEl = document.getElementById("global-reveal-timer");
 
-    ownedVotes.forEach(x => {
-      const timerEl = document.getElementById("reveal-timer-" + x.tempId);
-      const btnEl   = document.getElementById("verify-btn-"   + x.tempId);
-      if(!timerEl || !btnEl) return;
-
-      const rem = Math.ceil((x.revealDeadline - now) / 1000);
-      if(rem > 0){
-        anyActive = true;
-        timerEl.textContent = "Reveal window: " + rem + "s remaining";
-        timerEl.className = "reveal-timer " + (rem <= 8 ? "urgent" : "ticking");
-        btnEl.disabled = false;
-      } else {
-        timerEl.textContent = "Reveal window: Window expired";
-        timerEl.className = "reveal-timer expired";
-        btnEl.disabled = true;
+    if(rem > 0){
+      if(timerEl){
+        timerEl.textContent = "Verification window: " + rem + "s remaining";
+        timerEl.className = "reveal-timer " + (rem <= 30 ? "urgent" : "ticking");
       }
-    });
-
-    if(!anyActive){
+      const freshLedger = getLedger();
+      ownedVotes.forEach(x => {
+        const btnEl = document.getElementById("verify-btn-" + x.tempId);
+        if(!btnEl) return;
+        const fresh = freshLedger.find(e => e.tempId === x.tempId);
+        if(fresh && fresh.revealConsumed){
+          btnEl.disabled = true;
+          btnEl.textContent = "Consumed";
+        } else {
+          btnEl.disabled = false;
+          btnEl.textContent = "Available";
+        }
+      });
+    } else {
+      if(timerEl){
+        timerEl.textContent = "Verification window: expired";
+        timerEl.className = "reveal-timer expired";
+      }
+      ownedVotes.forEach(x => {
+        const btnEl = document.getElementById("verify-btn-" + x.tempId);
+        if(!btnEl) return;
+        btnEl.disabled = true;
+        btnEl.textContent = "Expired";
+      });
       clearInterval(_countdownInterval);
       _countdownInterval = null;
     }
@@ -1048,12 +1080,14 @@ async function verify(id){
   if(!v)          { showStatus("Entry not found."); return; }
   if(!v.owned)    { showStatus("Not your vote."); return; }
   if(!isClosed()) { showStatus("Wait until the election closes."); return; }
-  if(Date.now() > v.revealDeadline){ showStatus("Reveal window has expired."); return; }
+  if(v.revealConsumed){ showStatus("Ballot already revealed."); return; }
+  const globalDeadline = parseInt(localStorage.getItem("verificationEndsAt") || "0", 10);
+  if(Date.now() > globalDeadline){ showStatus("Reveal window has expired."); return; }
 
   const plain      = await decryptVote(v.encrypted);
   const recomputed = await sha256hex(v.tempId + v.encrypted + v.timestamp);
   const hashMatch  = recomputed === v.hash;
-  const remSec     = Math.max(0, Math.ceil((v.revealDeadline - Date.now()) / 1000));
+  const remSec     = Math.max(0, Math.ceil((globalDeadline - Date.now()) / 1000));
 
   const hashLine = hashMatch
     ? `<div class="ballot-hash-pass">&#10003; Hash verified — ledger entry is intact</div>`
@@ -1065,11 +1099,15 @@ async function verify(id){
     <div class="ballot-vote-value">${plain}</div>
     ${hashLine}
     <div class="ballot-note">
-      Decrypted with your private key.<br>
+      Revealed through your verification right.<br>
       Window closes in ${remSec}s.
     </div>
     <button class="ballot-close-btn" onclick="closeBallotModal()">Close</button>
   `);
+
+  v.revealConsumed = true;
+  setLedger(l);
+  renderMyVotes();
 }
 
 // ===================== CLOSE =====================
@@ -1077,7 +1115,10 @@ function closeElection(){
   if(isClosed()) return;
   clearInterval(_countdownInterval);
   _countdownInterval = null;
+  const publishedAt = Date.now();
   setClosed(true);
+  localStorage.setItem("resultsPublishedAt", String(publishedAt));
+  localStorage.setItem("verificationEndsAt", String(publishedAt + REVEAL_DURATION));
   renderStatus();
   renderMyVotes();
   logSystem("Private key used to compute tally", "amber");
