@@ -4,20 +4,35 @@ This prototype demonstrates a path toward publicly verifiable elections, includi
 
 It explores how cryptography can make election results independently auditable by anyone, without compromising vote secrecy.
 
+---
+
 ## Live Demo
+
 https://philchevaillot.github.io/public-verifiable-voting/
 
 > Note: This demo decrypts individual ballots for clarity. Real systems use homomorphic tallying or threshold decryption to avoid exposing individual votes.
 
-> Note: This demo allows multiple votes per user to simulate participation. Real systems enforce one-person-one-vote through identity or credential verification.
+---
 
 ## System Architecture
 
-This diagram illustrates the trust-minimized architecture of the publicly verifiable voting system.
+This diagram illustrates a security-first architecture, emphasizing trust minimization, public auditability, and distributed decryption.
 
 <p align="center">
   <img src="docs/diagram.svg" alt="Publicly Verifiable Voting System Architecture" width="900">
 </p>
+
+---
+
+## 🔐 Security Model
+
+This architecture represents an initial security-oriented design, focusing on:
+
+- trust minimization (no single authority can alter or decrypt results)  
+- public auditability (independent recomputation from the ledger)  
+- distributed key management (t-of-n threshold decryption across nodes)  
+
+Further work would include formal verification, adversarial modeling, and integration of zero-knowledge proofs or homomorphic tallying.
 
 ## Overview
 
