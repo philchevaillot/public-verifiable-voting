@@ -11,6 +11,14 @@ https://philchevaillot.github.io/public-verifiable-voting/
 
 > Note: This demo allows multiple votes per user to simulate participation. Real systems enforce one-person-one-vote through identity or credential verification.
 
+## System Architecture
+
+This diagram illustrates the trust-minimized architecture of the publicly verifiable voting system.
+
+<p align="center">
+  <img src="docs/diagram.svg" alt="Publicly Verifiable Voting System Architecture" width="900">
+</p>
+
 ## Overview
 
 This project proposes a publicly verifiable voting system designed to eliminate the need to trust centralized counting authorities while preserving strict vote secrecy.
