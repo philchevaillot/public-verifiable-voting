@@ -21,6 +21,9 @@ This diagram illustrates a security-first architecture, emphasizing trust minimi
 <p align="center">
   <img src="docs/diagram.svg" alt="Publicly Verifiable Voting System Architecture" width="900">
 </p>
+<p align="center">
+  <i>End-to-end flow: encrypted ballots → public ledger → distributed tally → independent audit</i>
+</p>
 
 ---
 
