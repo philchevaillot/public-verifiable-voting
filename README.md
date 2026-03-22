@@ -29,7 +29,7 @@ This diagram illustrates a security-first architecture, emphasizing trust minimi
 
 ## Security Model
 
-This architecture represents an initial security-oriented design, focusing on:
+This architecture represents a first iteration of a trust-minimized, publicly verifiable voting system, designed with security and auditability as primary constraints.
 
 - trust minimization (no single authority can alter or decrypt results)  
 - public auditability (independent recomputation from the ledger)  
