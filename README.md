@@ -274,8 +274,15 @@ Proof must be publicly verifiable
 SUMMARY:
 A publicly verifiable, privacy-preserving voting system with no single point of trust and no transferable proof of vote.
 
+---
+
 ## Notes
 
-This is an open concept intended for discussion, review, and improvement.
+This project is an **open prototype exploring publicly verifiable, trust-minimized voting systems**.
 
-Feedback is welcome.
+It focuses on making core mechanisms — encryption, public ledger publication, and voter verification — fully observable and understandable.
+
+The current implementation prioritizes **transparency and clarity over production security**, in order to support discussion, analysis, and iterative refinement.
+
+Feedback, critique, and thoughtful discussion are highly encouraged.
+Contributions may be considered as the architecture stabilizes.
