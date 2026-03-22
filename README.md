@@ -24,7 +24,7 @@ This diagram illustrates a security-first architecture, emphasizing trust minimi
 
 ---
 
-## 🔐 Security Model
+## Security Model
 
 This architecture represents an initial security-oriented design, focusing on:
 
