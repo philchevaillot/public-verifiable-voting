@@ -1,27 +1,47 @@
 # Public Verifiable Voting System
 
-This project demonstrates a minimal, browser-based prototype of a **publicly verifiable voting system**, where:
+Digital voting faces a fundamental challenge:  
+making election results publicly verifiable without exposing individual votes or enabling coercion.
 
-- all ballots are **encrypted client-side**
-- all votes are published to a **public ledger**
-- the final tally can be **independently recomputed by anyone**
-- each voter retains a **private, single-use verification right**
+Most systems solve only part of the problem:
+- verifiable systems risk leaking voter intent  
+- private systems require trust in the authority  
 
-The goal is to explore how modern cryptography can enable **trust-minimized elections**, where correctness does not depend on trusting a central authority.
+This project proposes a different approach:
+
+> A voter can verify their vote, but cannot reliably prove it to a third party.
 
 ---
 
-## What this prototype shows
+## Key Idea
 
-This demo implements a simplified but concrete version of an end-to-end verifiable voting model:
+The system combines:
 
-- **Public-key encryption (RSA-OAEP)** for ballot secrecy  
-- **Public append-only ledger** for transparency  
-- **Post-election verification window** for voter auditability  
-- **Single-use private ballot reveal** (simulating real verification rights)  
-- **Independent tally recomputation** from published data  
+- **public verifiability**  
+  All ballots are published in encrypted form and can be independently verified by anyone.
 
-> The system is intentionally client-side only to make all mechanisms visible and auditable.
+- **strong privacy guarantees**  
+  Votes remain unlinkable to voter identity and are never exposed in plaintext on personal devices.
+
+- **constrained verification (v1.2)**  
+  Ballot verification is:
+  - available only after election closure  
+  - limited to a short verification window  
+  - performed on a certified terminal, not the voter’s device  
+  - displayed briefly and cleared automatically  
+
+- **non-transferable proof of vote**  
+  Verification allows personal confirmation, but prevents durable or replayable evidence.
+
+---
+
+## What This Project Is
+
+- an open system design for publicly verifiable elections  
+- a working browser-based prototype demonstrating key concepts  
+- an exploration of how cryptography and controlled verification can coexist  
+
+👉 See full system design: [`docs/system_overview_v1.2.md`](docs/system_overview_v1.2.md)
 
 ---
 
@@ -29,260 +49,74 @@ This demo implements a simplified but concrete version of an end-to-end verifiab
 
 https://philchevaillot.github.io/public-verifiable-voting/
 
-> Note: This demo decrypts individual ballots for clarity. Real systems use homomorphic tallying or threshold decryption to avoid exposing individual votes.
-
-> Demo constraints:
-> - one ballot per device/session  
-> - verification only available after election closure  
-> - global verification window  
-> - verification right is single-use  
+> Note: The demo is simplified for clarity and runs fully client-side.  
+> In a real deployment, private keys and verification infrastructure would be handled outside the browser.
 
 ---
 
-## System Architecture
+## How It Works
 
-This diagram illustrates a security-first architecture, emphasizing trust minimization, public auditability, and distributed decryption.
+The system separates voting and verification into distinct phases.
 
-<p align="center">
-  <img src="docs/diagram.svg" alt="Publicly Verifiable Voting System Architecture" width="900">
-</p>
-<p align="center">
-  <i>End-to-end flow: encrypted ballots → public ledger → distributed tally → independent audit</i>
-</p>
+### 1. Voting
+- The voter selects a choice on their device  
+- The vote is encrypted locally and never exposed in plaintext  
+- A validity proof ensures the ballot is correctly formed  
 
----
+### 2. Publication
+- The encrypted ballot is published to a public ledger  
+- Once included in a sealed block, the vote becomes final  
 
-## Security Model
+### 3. Tally
+- Votes are aggregated using homomorphic encryption  
+- Only the final result is decrypted  
+- Anyone can independently verify the tally  
 
-This architecture represents a first iteration of a trust-minimized, publicly verifiable voting system, designed with security and auditability as primary constraints.
-
-- trust minimization (no single authority can alter or decrypt results)  
-- public auditability (independent recomputation from the ledger)  
-- distributed key management (t-of-n threshold decryption across nodes)  
-
-Further work would include formal verification, adversarial modeling, and integration of zero-knowledge proofs or homomorphic tallying.
-
-## Overview
-
-This project proposes a publicly verifiable voting system designed to eliminate the need to trust centralized counting authorities while preserving strict vote secrecy.
-
-The system allows any citizen to verify that:
-- their vote was recorded
-- their vote was counted
-- their vote was counted correctly
-
-without ever being able to prove their vote to a third party.
+### 4. Verification (post-election)
+- After the election closes, voters may verify their ballot  
+- The voter device authorizes the process, but does not perform it  
+- The ballot is revealed only on a certified terminal  
+- The terminal operates within a controlled environment (e.g. private booth, no recording devices)  
+- The display is brief, automatic, and cannot be repeated  
 
 ---
 
-## Problem
+## What Makes This Different
 
-Modern voting systems face three major challenges:
+Most digital voting systems expose a structural weakness:
 
-- Declining public trust in vote counting
-- High operational cost of physical voting
-- Low participation due to complexity and disengagement
+- if voters can freely reveal their vote → coercion and vote buying become possible  
+- if they cannot → verification requires trust in the authority  
 
-Existing digital solutions often introduce new risks:
-- central points of failure
-- lack of transparency
-- potential coercion or vote selling
+This system removes that trade-off.
 
----
+- **Verification is decoupled from the voter device**  
+  The device authorizes access, but never reveals the ballot  
 
-## Solution
+- **Ballot exposure is constrained by design**  
+  Verification occurs only in a controlled environment, for a short duration  
 
-This system introduces a model based on:
+- **No transferable proof is produced**  
+  The system does not generate any durable or replayable evidence of a vote  
 
-- Public ledger for universal verification
-- Homomorphic encryption for secure tallying
-- Zero-knowledge proofs to ensure ballot validity
-- Temporary, unlinkable voter identities
-- One-time private vote verification
+- **Verification is single-use and time-limited**  
+  Each ballot can be checked once, within a defined window  
 
-Key properties:
-
-- No single point of trust
-- Full public auditability
-- Strong privacy guarantees
-- No transferable proof of vote
+- **Digital and physical voting are strictly separated**  
+  A voter commits to one channel, preventing cross-system duplication  
 
 ---
 
-## Key Principles
-
-- One vote → one ballot
-- Vote finality only upon public block publication
-- First valid published ballot wins
-- No intermediate confirmation states
-- No backend trust required
-
----
-
-## Verification Model
-
-Each voter can verify (after results publication):
-
-- their ballot was included
-- it contributed to the correct outcome
-
-This is achieved without revealing their identity or enabling coercion.
-
----
-
-## Current Status
-
-This project is currently at the **architecture and specification stage (V1.1)**.
-
-The goal is to:
-- refine the model
-- validate assumptions
-- explore implementation paths
-
----
-
-## Full Specification (V1.1)
-> Version 1.1 — Initial complete architecture draft
-
-1. Identity Layer
-- Each citizen has a 10-year long-term key pair
-- Key is legally bound to the citizen, not the device
-- One active trusted device at a time
-- Device acts as secure execution environment only
-
-2. Election Identity
-- One temporary election identity per election
-- Generated locally at voting time (not pre-generated)
-- Derived/blinded and unlinkable across elections
-- Authorized by long-term key
-- Reusable across sessions for the same election
-- Not persistent beyond election lifecycle
-
-3. Session Model
-- Multiple sessions allowed per election
-- Same temporary identity reused
-- No new identity created on retry
-- Identity reconstructable securely during retries
-
-4. Voting Rules
-- One vote → one ballot
-- No forks allowed
-- One identity per election
-
-5. Vote Finality
-- Vote is final only when included in a published sealed block
-- No intermediate state is valid
-- App must display: “waiting for publication”
-
-6. Pending vs Final State
-- Pending: submission in progress, internally locked
-- Final: published on public ledger
-- Pending does NOT consume voting right
-
-7. Failure Handling
-- If interrupted before publication → vote lost
-- User must restart from scratch
-- No background retry allowed
-
-8. Duplicate Handling
-- If multiple ballots exist:
-  - First included in a published sealed block wins
-  - Others ignored
-
-9. Vote Consumption
-- Voting right consumed only at final publication
-
-10. Ballot Structure
-Each ballot contains:
-- Temporary election identity
-- Encrypted vote (vector-based, homomorphic)
-- Zero-knowledge proof (ZKP)
-
-11. Ballot Validity Proof (Mandatory)
-ZKP must prove:
-- Exactly one valid choice selected
-- No multiple selections
-- No inflated values
-- Valid encoding structure
-Proof must be publicly verifiable
-
-12. Privacy Model
-- No public mapping between identity and vote
-- At no point should (temporary ID ↔ vote choice) be derivable, even transiently
-- No transferable receipt possible
-
-13. Private Verification (User)
-- One-time reveal after results published
-- Reveal key generated locally during voting
-- Stored securely on device
-- Used once, then destroyed
-- Reveal shows only chosen option
-
-14. Reveal Storage
-- Reveal payload stored publicly (encrypted)
-- Only decryptable with reveal key
-- Reveal is non-transferable
-
-15. Tally System
-- Homomorphic encryption used for aggregation
-- Votes combined without decryption
-
-16. Final Decryption
-- Only aggregate results decrypted
-- Uses threshold cryptography (multiple key holders)
-- No individual ballot decryption possible
-
-17. Public Verification
-- Entire ledger is public
-- Anyone can verify:
-  - Ballot validity (ZKP)
-  - Tally correctness (ZKP)
-- No trust in backend required
-
-18. Security Principles
-- No hidden states
-- No backend trust
-- Strict input validation
-- System designed to absorb attacks
-
-19. Infrastructure Principles
-- Non-discoverable endpoints
-- Layered DDoS resistance (network-level + protocol-level)
-- Queue-based processing
-- Fast block publication (seconds target)
-
-20. Device Security
-- Requires secure OS environment
-- Keys stored in secure hardware
-- Non-exportable secrets
-- Compromised device → physical voting fallback
-
-21. Physical Fallback
-- User is either digital or physical voter
-- Never both simultaneously
-
-22. Governance Boundary
-- System defines technical guarantees only
-- Law enforcement, monitoring, and attribution handled by authorities
-
-23. System Philosophy
-- Full public verifiability
-- Strong privacy guarantees
-- Minimal trust assumptions
-- Simplicity and determinism
-
-SUMMARY:
-A publicly verifiable, privacy-preserving voting system with no single point of trust and no transferable proof of vote.
+This architecture preserves public verifiability while making large-scale coercion and vote buying significantly harder.
 
 ---
 
 ## Notes
 
-This project is an **open prototype exploring publicly verifiable, trust-minimized voting systems**.
+This project is an open prototype and system design exploring publicly verifiable, trust-minimized voting.
 
-It focuses on making core mechanisms — encryption, public ledger publication, and voter verification — fully observable and understandable.
+It focuses on making core mechanisms — encrypted ballots, public ledger publication, and constrained voter verification — transparent and inspectable, while examining how verification can be provided without enabling transferable proof of vote.
 
-The current implementation prioritizes **transparency and clarity over production security**, in order to support discussion, analysis, and iterative refinement.
+The current implementation prioritizes clarity and observability over production security. It is intended to support analysis, discussion, and iterative refinement of the model, rather than represent a deployable system.
 
-Feedback, critique, and thoughtful discussion are highly encouraged.
-Contributions may be considered as the architecture stabilizes.
+Feedback, critique, and thoughtful discussion are encouraged. Contributions are welcome, particularly in areas related to verification design, coercion resistance, and real-world deployment constraints.
