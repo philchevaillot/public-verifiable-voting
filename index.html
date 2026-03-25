@@ -63,7 +63,7 @@ body {
 }
 
 .phone-col-label {
-  font-size: .72em;
+  font-size: .88em;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: #666;
@@ -118,98 +118,6 @@ body {
   line-height: 1.6;
   position: relative;
 }
-
-/* ── BALLOT MODAL ─────────────────────────────────────────── */
-#ballotModal {
-  display: none;
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,.55);
-  border-radius: 32px;
-  z-index: 10;
-  align-items: center;
-  justify-content: center;
-  padding: 1.2em;
-}
-#ballotModal.open { display: flex; }
-
-.ballot-card {
-  background: #fff;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,.28);
-  width: 100%;
-}
-
-.ballot-card-header {
-  background: #fff;
-  color: #1a3a5c;
-  border-top: 4px solid #1a3a5c;
-  padding: .85em 1em .7em;
-  font-size: .9em;
-  font-weight: 700;
-  letter-spacing: -.01em;
-  line-height: 1.35;
-  border-bottom: 1px solid #e0e8f0;
-}
-
-.ballot-card-body {
-  padding: 1em;
-  font-size: .85em;
-  line-height: 1.6;
-}
-
-.ballot-id {
-  color: #888;
-  font-size: .78em;
-  font-family: monospace;
-  margin-bottom: .8em;
-}
-
-.ballot-vote-label {
-  font-size: .72em;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: #888;
-  margin-bottom: .25em;
-}
-
-.ballot-vote-value {
-  background: #f0f7ff;
-  border: 1px solid #b8d0e8;
-  border-radius: 8px;
-  padding: .5em .8em;
-  font-size: 1em;
-  font-weight: 700;
-  color: #1a3a5c;
-  margin-bottom: .8em;
-}
-
-.ballot-hash-pass { color: #1a7a1a; font-weight: 700; font-size: .85em; }
-.ballot-hash-fail { color: #c0392b; font-weight: 700; font-size: .85em; }
-
-.ballot-note {
-  color: #999;
-  font-size: .78em;
-  margin-top: .6em;
-  line-height: 1.45;
-}
-
-.ballot-close-btn {
-  display: block;
-  width: 100%;
-  background: #1a3a5c;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: .55em;
-  margin-top: .9em;
-  font-family: inherit;
-  font-size: .9em;
-  font-weight: 600;
-  cursor: pointer;
-}
-.ballot-close-btn:hover { background: #0d2540; }
 
 /* Status bar row inside screen */
 .phone-status-bar {
@@ -327,11 +235,31 @@ body {
 .reveal-timer.urgent   { color: #c0392b; font-weight: 700; }
 .reveal-timer.expired  { color: #999; }
 
+#electionCountdown { font-size: .88em; margin-bottom: .5em; }
+
 .my-vote-item button:disabled {
   background: #b0b0b8;
   cursor: not-allowed;
   opacity: .7;
 }
+
+/* ── CERTIFIED VERIFICATION TERMINAL ─────────────────────── */
+.v-terminal {
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 1em 1.2em;
+  font-family: monospace;
+  font-size: .82em;
+  line-height: 1.7;
+  min-height: 4em;
+}
+.v-terminal .vt-label  { color: #58a6ff; }
+.v-terminal .vt-value  { color: #e6edf3; }
+.v-terminal .vt-pass   { color: #3fb950; font-weight: 700; }
+.v-terminal .vt-fail   { color: #f85149; font-weight: 700; }
+.v-terminal .vt-status { color: #8b949e; font-style: italic; }
 
 /* ── SYSTEM COLUMN ────────────────────────────────────────── */
 .system-col {
@@ -340,7 +268,7 @@ body {
 }
 
 .system-col-label {
-  font-size: .72em;
+  font-size: .88em;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: #666;
@@ -573,14 +501,6 @@ th {
     <div class="phone-shell">
       <div class="phone-screen">
 
-        <!-- Ballot verification modal -->
-        <div id="ballotModal">
-          <div class="ballot-card">
-            <div class="ballot-card-header">&#128274; You are accessing your ballot</div>
-            <div class="ballot-card-body" id="ballotModalBody"></div>
-          </div>
-        </div>
-
         <div class="phone-status-bar">
           <span id="phoneTime">9:41</span>
           <span>&#9679;&#9679;&#9679; &#9641;</span>
@@ -622,6 +542,8 @@ th {
         </div>
       </div>
 
+      <div id="electionCountdown"></div>
+
       <div id="systemLog"></div>
 
       <h3>Public Ledger</h3>
@@ -633,6 +555,9 @@ th {
 
       <h3>Tally</h3>
       <div id="tally"></div>
+
+      <h3>Certified Verification Terminal</h3>
+      <div id="verificationTerminal" class="v-terminal"></div>
 
     </div>
   </div>
@@ -711,7 +636,9 @@ const CANDIDATES = [
   "⚪ Blank Vote"
 ];
 
-const REVEAL_DURATION = 300000;
+const REVEAL_DURATION = 31536000 * 1000;
+const ELECTION_DURATION = 86400 * 1000;
+const TERMINAL_DISPLAY_DURATION = 15000;
 
 // ===================== DEVICE IDENTITY (simulated) =====================
 function generateOne(){
@@ -726,6 +653,8 @@ function getLedger(){ return JSON.parse(localStorage.getItem("ledger")||"[]"); }
 function setLedger(l){ localStorage.setItem("ledger", JSON.stringify(l)); }
 function isClosed(){ return localStorage.getItem("closed")==="true"; }
 function setClosed(v){ localStorage.setItem("closed", v); }
+function getElectionEndsAt(){ return parseInt(localStorage.getItem("electionEndsAt") || "0", 10); }
+function setElectionEndsAt(ts){ localStorage.setItem("electionEndsAt", String(ts)); }
 
 // ===================== RSA-OAEP KEY MANAGEMENT =====================
 
@@ -739,6 +668,8 @@ const RSA_PARAMS = {
 let _publicKey  = null;
 let _privateKey = null;
 let _countdownInterval = null;
+let _electionCountdownInterval = null;
+let _terminalSession = null;
 
 async function getKeyPair(){
   if(_publicKey && _privateKey) return { publicKey: _publicKey, privateKey: _privateKey };
@@ -806,23 +737,79 @@ function showStatus(msg, color, duration){
   }, duration || 3000);
 }
 
-function openBallotModal(bodyHtml){
-  const screen = document.querySelector('.phone-screen');
-  screen.scrollTop = 0;
-  document.getElementById("ballotModalBody").innerHTML = bodyHtml;
-  document.getElementById("ballotModal").classList.add("open");
-}
-
-function closeBallotModal(){
-  document.getElementById("ballotModal").classList.remove("open");
-}
-
 function updatePhoneClock(){
   const now = new Date();
   const h = now.getHours().toString().padStart(2,"0");
   const m = now.getMinutes().toString().padStart(2,"0");
   const el = document.getElementById("phoneTime");
   if(el) el.textContent = h + ":" + m;
+}
+
+// ===================== ELECTION COUNTDOWN =====================
+function renderElectionCountdown(){
+  const el = document.getElementById("electionCountdown");
+  if(!el) return;
+  if(isClosed()){
+    el.textContent = "Election closed";
+    el.className = "reveal-timer expired";
+    return;
+  }
+  const rem = Math.ceil((getElectionEndsAt() - Date.now()) / 1000);
+  if(rem > 0){
+    el.textContent = "Election closes in: " + rem + "s";
+    el.className = "reveal-timer " + (rem <= 30 ? "urgent" : "ticking");
+  } else {
+    el.textContent = "Election closes in: 0s";
+    el.className = "reveal-timer urgent";
+  }
+}
+
+function maybeStartAutoClose(){
+  if(isClosed() || !getElectionEndsAt()) return;
+  clearInterval(_electionCountdownInterval);
+  _electionCountdownInterval = setInterval(function(){
+    renderElectionCountdown();
+    if(Date.now() >= getElectionEndsAt()){
+      clearInterval(_electionCountdownInterval);
+      _electionCountdownInterval = null;
+      closeElection();
+      logSystem("Election closed automatically", "amber");
+    }
+  }, 1000);
+}
+
+// ===================== TERMINAL =====================
+function renderTerminal(){
+  const el = document.getElementById("verificationTerminal");
+  if(!el) return;
+
+  if(!_terminalSession || !_terminalSession.active){
+    el.innerHTML = `<span class="vt-status">[ IDLE — no active session ]</span>`;
+    return;
+  }
+
+  const s = _terminalSession;
+  const ts = new Date(s.openedAt);
+  const timeStr = [ts.getHours(), ts.getMinutes(), ts.getSeconds()]
+    .map(n => n.toString().padStart(2,"0")).join(":");
+
+  const hashLine = s.hashMatch
+    ? `<span class="vt-pass">&#10003; HASH VERIFIED — ledger entry is intact</span>`
+    : `<span class="vt-fail">&#10007; HASH MISMATCH — ledger may be tampered</span>`;
+
+  el.innerHTML =
+`<span class="vt-label">SESSION STATUS  </span><span class="vt-value">ACTIVE</span>
+<span class="vt-label">BALLOT ID       </span><span class="vt-value">${s.ballotId}</span>
+<span class="vt-label">REVEALED VOTE   </span><span class="vt-value">${s.plainVote}</span>
+<span class="vt-label">INTEGRITY       </span>${hashLine}
+<span class="vt-label">SESSION OPENED  </span><span class="vt-value">${timeStr}</span>
+<span class="vt-status">Auto-clearing in ${Math.ceil(TERMINAL_DISPLAY_DURATION / 1000)}s…</span>`;
+}
+
+function clearTerminalSession(){
+  _terminalSession = null;
+  renderTerminal();
+  logSystem("Terminal session cleared", "amber");
 }
 
 // ===================== INIT =====================
@@ -837,6 +824,10 @@ async function init(){
     document.getElementById("status").innerText = "";
   }
 
+  if(!isClosed() && !getElectionEndsAt()){
+    setElectionEndsAt(Date.now() + ELECTION_DURATION);
+  }
+
   renderCandidates();
   renderLedger();
   renderMyVotes();
@@ -844,6 +835,9 @@ async function init(){
   await renderTally();
   randomName();
   renderKeyInspector();
+  renderTerminal();
+  renderElectionCountdown();
+  maybeStartAutoClose();
   updatePhoneClock();
   setInterval(updatePhoneClock, 30000);
 }
@@ -1005,7 +999,7 @@ function renderMyVotes(){
         if(x.revealConsumed){
           btnLabel = "Consumed";
         } else {
-          btnLabel = "Available";
+          btnLabel = "Authorize terminal";
           btnDisabled = "";
         }
       } else {
@@ -1015,7 +1009,7 @@ function renderMyVotes(){
 
     html += `<div class="my-vote-item" id="vote-card-${x.tempId}">
       <b>ID:</b> ${x.tempId}<br>
-      <button id="verify-btn-${x.tempId}" onclick="verify('${x.tempId}')"${btnDisabled}>${btnLabel}</button>
+      <button id="verify-btn-${x.tempId}" onclick="startVerificationSession('${x.tempId}')"${btnDisabled}>${btnLabel}</button>
     </div>`;
   });
 
@@ -1050,7 +1044,7 @@ function startCountdown(ownedVotes){
           btnEl.textContent = "Consumed";
         } else {
           btnEl.disabled = false;
-          btnEl.textContent = "Available";
+          btnEl.textContent = "Authorize terminal";
         }
       });
     } else {
@@ -1074,45 +1068,46 @@ function startCountdown(ownedVotes){
 }
 
 // ===================== VERIFY =====================
-async function verify(id){
+async function startVerificationSession(id){
   const l = getLedger();
   const v = l.find(x => x.tempId === id);
   if(!v)          { showStatus("Entry not found."); return; }
   if(!v.owned)    { showStatus("Not your vote."); return; }
   if(!isClosed()) { showStatus("Wait until the election closes."); return; }
-  if(v.revealConsumed){ showStatus("Ballot already revealed."); return; }
+  if(v.revealConsumed){ showStatus("Verification right already consumed."); return; }
   const globalDeadline = parseInt(localStorage.getItem("verificationEndsAt") || "0", 10);
-  if(Date.now() > globalDeadline){ showStatus("Reveal window has expired."); return; }
+  if(Date.now() > globalDeadline){ showStatus("Verification window has expired."); return; }
+
+  logSystem("Verification session authorized", "green");
+
+  v.revealConsumed = true;
+  setLedger(l);
+  logSystem("Verification right consumed", "amber");
+  renderMyVotes();
 
   const plain      = await decryptVote(v.encrypted);
   const recomputed = await sha256hex(v.tempId + v.encrypted + v.timestamp);
   const hashMatch  = recomputed === v.hash;
-  const remSec     = Math.max(0, Math.ceil((globalDeadline - Date.now()) / 1000));
 
-  const hashLine = hashMatch
-    ? `<div class="ballot-hash-pass">&#10003; Hash verified — ledger entry is intact</div>`
-    : `<div class="ballot-hash-fail">&#10007; Hash MISMATCH — ledger may be tampered</div>`;
+  _terminalSession = {
+    active:    true,
+    ballotId:  v.tempId,
+    plainVote: plain,
+    hashMatch,
+    openedAt:  Date.now()
+  };
 
-  openBallotModal(`
-    <div class="ballot-id">Ballot ID: ${v.tempId}</div>
-    <div class="ballot-vote-label">Your vote</div>
-    <div class="ballot-vote-value">${plain}</div>
-    ${hashLine}
-    <div class="ballot-note">
-      Revealed through your verification right.<br>
-      Window closes in ${remSec}s.
-    </div>
-    <button class="ballot-close-btn" onclick="closeBallotModal()">Close</button>
-  `);
-
-  v.revealConsumed = true;
-  setLedger(l);
-  renderMyVotes();
+  renderTerminal();
+  logSystem("Terminal display opened", "blue");
+  showStatus("Verification session started — see terminal.", "#1a7a1a");
+  setTimeout(() => clearTerminalSession(), TERMINAL_DISPLAY_DURATION);
 }
 
 // ===================== CLOSE =====================
 function closeElection(){
   if(isClosed()) return;
+  clearInterval(_electionCountdownInterval);
+  _electionCountdownInterval = null;
   clearInterval(_countdownInterval);
   _countdownInterval = null;
   const publishedAt = Date.now();
@@ -1120,6 +1115,7 @@ function closeElection(){
   localStorage.setItem("resultsPublishedAt", String(publishedAt));
   localStorage.setItem("verificationEndsAt", String(publishedAt + REVEAL_DURATION));
   renderStatus();
+  renderElectionCountdown();
   renderMyVotes();
   logSystem("Private key used to compute tally", "amber");
   renderTally();
@@ -1196,7 +1192,10 @@ async function renderKeyInspector(){
 function resetAll(){
   clearInterval(_countdownInterval);
   _countdownInterval = null;
-  closeBallotModal();
+  clearInterval(_electionCountdownInterval);
+  _electionCountdownInterval = null;
+  _terminalSession = null;
+  renderTerminal();
   const sysLog = document.getElementById("systemLog");
   if(sysLog) sysLog.innerHTML = "";
   _publicKey  = null;
