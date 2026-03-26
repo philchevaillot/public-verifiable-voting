@@ -41,7 +41,9 @@ The system combines:
 - a working browser-based prototype demonstrating key concepts  
 - an exploration of how cryptography and controlled verification can coexist  
 
-👉 See full system design: [`docs/system_overview_v1.2.md`](docs/system_overview_v1.2.md)
+## Documentation
+- [System Overview (v1.2)](docs/system_overview_v1.2.md)
+- [Full Security Specification (v1.2)](docs/security_full_spec_v1.2.md)
 
 ---
 
