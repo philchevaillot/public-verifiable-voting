@@ -4,12 +4,23 @@ Digital voting faces a fundamental challenge:
 making election results publicly verifiable without exposing individual votes or enabling coercion.
 
 Most systems solve only part of the problem:
+
 - verifiable systems risk leaking voter intent  
 - private systems require trust in the authority  
 
 This project proposes a different approach:
 
-> A voter can verify their vote, but cannot reliably prove it to a third party.
+> A voter can verify their vote, but cannot prove it to others.
+
+---
+
+## Architecture Overview
+
+The system combines public verifiability with strong coercion resistance through a constrained verification model.
+
+![System Diagram](docs/system_diagram_v1.2.svg)
+
+*Figure: v1.2 architecture — voting, public ledger, verification flow, and constrained reveal mechanism.*
 
 ---
 
@@ -41,9 +52,13 @@ The system combines:
 - a working browser-based prototype demonstrating key concepts  
 - an exploration of how cryptography and controlled verification can coexist  
 
+---
+
 ## Documentation
+
 - [System Overview (v1.2)](docs/system_overview_v1.2.md)
 - [Full Security Specification (v1.2)](docs/security_full_spec_v1.2.md)
+- [Threat Model (v1)](docs/threat_model_v1.md)
 
 ---
 
@@ -90,7 +105,7 @@ Most digital voting systems expose a structural weakness:
 - if voters can freely reveal their vote → coercion and vote buying become possible  
 - if they cannot → verification requires trust in the authority  
 
-This system removes that trade-off.
+This system addresses that trade-off.
 
 - **Verification is decoupled from the voter device**  
   The device authorizes access, but never reveals the ballot  
