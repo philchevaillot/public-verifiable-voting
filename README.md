@@ -71,6 +71,36 @@ https://philchevaillot.github.io/public-verifiable-voting/
 
 ---
 
+Demo Reality Check
+
+Implemented in the demo:
+	•	RSA-OAEP encryption (Web Crypto)
+	•	SHA-256 hashing and public ledger integrity
+	•	Deterministic election identity (EID)
+	•	End-to-end voting → publication → verification flow
+
+Simulated in the demo:
+	•	Zero-Knowledge Proofs (hash commitments only)
+	•	Homomorphic tallying
+	•	Threshold decryption (7-of-10)
+	•	Certified verification terminals
+	•	Hardware-backed device security
+
+Intentional limitation:
+	•	The private key is stored in localStorage (demo-only vulnerability)
+
+⸻
+
+Quick Demo (30 seconds)
+	1.	Enter a display name and cast a vote
+	2.	Observe your ballot appear in the public ledger
+	3.	Close the election (System View)
+	4.	View the tally and threshold decryption simulation
+	5.	Authorize verification → see your vote on the terminal
+	6.	Notice the verification right is consumed and cannot be reused
+
+⸻
+
 ## How It Works
 
 The system separates voting and verification into distinct phases.
