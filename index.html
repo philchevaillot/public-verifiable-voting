@@ -75,6 +75,7 @@ body {
   background: #1c1c1e;
   border-radius: 44px;
   padding: 12px;
+  height: calc(580px + 64px); /* 580px screen + shell padding(24px) + notch(28px) + home indicator(12px) */
   box-shadow:
     0 0 0 1px #3a3a3c,
     0 20px 60px rgba(0,0,0,.45),
@@ -111,7 +112,7 @@ body {
   background: #fff;
   border-radius: 32px;
   overflow-y: auto;
-  max-height: 580px;
+  height: 580px;
   padding: 1.2em 1em 1.4em;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: .88em;
@@ -347,6 +348,25 @@ body {
   margin-bottom: .6em;
   line-height: 1.4;
 }
+.badge-pending { color:#92400e; background:#fef3c7; padding:1px 6px; border-radius:3px; font-size:.82em; white-space:nowrap }
+.badge-final   { color:#065f46; background:#d1fae5; padding:1px 6px; border-radius:3px; font-size:.82em; white-space:nowrap }
+.sealed-block-banner {
+  background: #064e3b; color: #6ee7b7;
+  padding: .5em 1em; font-family: monospace; font-size: .85em;
+  border-radius: 4px; margin-bottom: .6em;
+}
+.threshold-panel {
+  background: #0d1117; color: #c9d1d9; border: 1px solid #30363d;
+  border-radius: 4px; padding: .8em 1em;
+  font-family: monospace; font-size: .82em; margin-top: .4em;
+  white-space: pre;
+}
+.ks-contributed { color: #3fb950 }
+.ks-absent      { color: #e3b341 }
+.ks-dormant     { color: #484f58 }
+.threshold-met  { color: #3fb950; font-weight: 700; margin-top: .5em; display: block }
+.threshold-note { color: #484f58; font-size: .9em; margin-top: .4em; display: block }
+.tally-method-note { font-size:.8em; color:#666; margin-bottom:.5em; font-style:italic }
 
 /* ── SYSTEM EVENT LOG ─────────────────────────────────────── */
 #systemLog {
@@ -472,8 +492,8 @@ th {
 @media (max-width: 720px) {
   .split-layout { flex-direction: column; }
   .phone-col { width: 100%; }
-  .phone-shell { border-radius: 28px; }
-  .phone-screen { border-radius: 20px; max-height: none; }
+  .phone-shell { border-radius: 28px; height: calc(520px + 64px); }
+  .phone-screen { border-radius: 20px; height: 520px; }
 }
 
 </style>
@@ -506,18 +526,31 @@ th {
           <span>&#9679;&#9679;&#9679; &#9641;</span>
         </div>
 
-        <h2>Cast Your Vote</h2>
+        <h2 id="phoneMainHeading">Cast Your Vote</h2>
 
-        <h3>Voter</h3>
+        <h3>Display Name</h3>
         <div class="voter-name-row">
-          <input id="name" placeholder="Voter name">
+          <input id="name" placeholder="Display name (local only)">
           <button onclick="randomName()">Random</button>
         </div>
+        <div id="electionIdentityDisplay" style="font-size:.78em;color:#888;margin:.3em 0 .6em;word-break:break-all">
+          Election identity: <span id="eidValue">—</span>
+        </div>
 
-        <h3>Candidates</h3>
-        <div id="candidates"></div>
+        <div id="votingForm">
+          <h3>Candidates</h3>
+          <div id="candidates"></div>
+          <button class="vote-btn" onclick="vote()">Submit Vote</button>
+        </div>
 
-        <button class="vote-btn" onclick="vote()">Submit Vote</button>
+        <div id="noVoteAvailable" style="display:none;padding:.8em 0">
+          <p style="font-weight:600;margin:.2em 0">No available election to vote for</p>
+          <p id="noVoteDetail" style="font-size:.85em;color:#555;margin:.2em 0">
+            Your ballot for this election has already been finalized.<br>
+            Verification will become available after election closure.
+          </p>
+        </div>
+
         <p id="status"></p>
 
         <h3>My Votes</h3>
@@ -529,7 +562,7 @@ th {
 
   <!-- ── RIGHT: SYSTEM VIEW ── -->
   <div class="system-col">
-    <div class="system-col-label">System View — public system view</div>
+    <div class="system-col-label">System View — public audit view</div>
     <div class="system-panel">
 
       <h2>&#9881; Election Control</h2>
@@ -550,11 +583,19 @@ th {
       <div class="ledger-note">
         RSA-OAEP ciphertext — unreadable without the private key.
         SHA-256 hashes allow independent tamper detection.
+        · ZKP proves exactly one valid choice is encoded (§11, simulated). In this demo: SHA-256(ballotId + candidateIndex + nonce).
+      </div>
+      <div id="sealedBlock"></div>
+      <div id="duplicateNote" style="display:none;font-size:.8em;color:#666;margin-bottom:.5em">
+        Duplicate-ballot resolution is defined in the specification (§8) but not fully modeled in this demo — the demo enforces one ballot per election identity.
       </div>
       <div id="ledger"></div>
 
-      <h3>Tally</h3>
+      <h3>Tally — Homomorphic Aggregation</h3>
       <div id="tally"></div>
+
+      <h3>Threshold Decryption — 7 of 10</h3>
+      <div id="thresholdPanel" class="threshold-panel"></div>
 
       <h3>Certified Verification Terminal</h3>
       <div id="verificationTerminal" class="v-terminal"></div>
@@ -569,59 +610,177 @@ th {
 
   <h2 id="transparency">&#128274; Security Transparency</h2>
 
+  <div style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:.8em 1.1em;margin:.6em 0 1.2em;font-size:.88em;line-height:1.6">
+    <strong>Demo overview:</strong>
+    <div style="display:flex;gap:2em;flex-wrap:wrap;margin-top:.4em">
+      <div>
+        <div style="font-weight:600;margin-bottom:.25em">Implemented in this demo</div>
+        <ul style="margin:0;padding-left:1.2em">
+          <li>RSA-OAEP encryption (Web Crypto)</li>
+          <li>SHA-256 hashing and ledger integrity</li>
+          <li>Election identity (EID) derivation</li>
+          <li>Refresh-resistant terminal session persistence (§19)</li>
+        </ul>
+      </div>
+      <div>
+        <div style="font-weight:600;margin-bottom:.25em">Simulated in this demo</div>
+        <ul style="margin:0;padding-left:1.2em">
+          <li>Zero-Knowledge Proofs (hash commitment only)</li>
+          <li>Homomorphic tallying</li>
+          <li>Threshold decryption ceremony (7/10)</li>
+          <li>Certified reveal infrastructure</li>
+          <li>Authoritative off-device verification consumption</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <h3>How the crypto works</h3>
   <ul>
     <li>
-      <b>Key pair:</b> At election start, an RSA-2048 key pair is generated with <code>crypto.subtle.generateKey</code>.
+      <b>Key pair (§1, §24):</b> At election start, an RSA-2048 key pair is generated with <code>crypto.subtle.generateKey</code>.
       The <em>public key</em> is shared openly — any voter uses it to encrypt their vote.
-      The <em>private key</em> is held by the election authority and used only at close to decrypt and tally.
+      In production, the private key is never generated in or transmitted to a browser. In this demo it lives in localStorage — the intentional weak point.
     </li>
     <li>
-      <b>Encryption:</b> Each vote is encrypted with <code>RSA-OAEP</code> (SHA-256) under the public key.
+      <b>Encryption (§10):</b> Each vote is encrypted with <code>RSA-OAEP</code> (SHA-256) under the public key.
       Without the private key, the ciphertext is computationally infeasible to reverse.
       There is no IV or symmetric layer — RSA-OAEP provides its own randomisation internally.
     </li>
     <li>
-      <b>Hashing:</b> Each ledger entry's hash is <code>SHA-256(id + encryptedVote + timestamp)</code>,
+      <b>Hashing (§12):</b> Each ledger entry's hash is <code>SHA-256(id + encryptedVote + timestamp)</code>,
       computed with <code>crypto.subtle.digest</code>. Anyone can recompute it to detect tampering.
+    </li>
+    <li>
+      <b>Temporary Election Identity (§1–3):</b> Each citizen has a long-term device key. For each election,
+      a temporary election identity (EID) is derived locally: <code>EID = "EID_" + SHA-256(citizenKey ∥ electionId)[0:20].toUpperCase()</code>.
+      The EID is the ballot ID visible on the public ledger. It is unlinkable across elections (different electionId each time),
+      and does not reveal the citizen's real identity — only the fact that a ballot was cast.
+    </li>
+    <li>
+      <b>Simulated ZKP (§10–11):</b> Each ballot carries a Zero-Knowledge Proof field.
+      In production: a real ZKP circuit (e.g. a Σ-protocol or Bulletproof) proves exactly one valid choice is encoded,
+      publicly verifiable without revealing the vote. In this demo: a SHA-256 commitment
+      <code>sha256(ballotId + candidateIndex + nonce)</code> binds the ballot identity to the specific
+      candidate choice — proving exactly one valid selection was encoded (§12).
+      For user-submitted ballots, ballotId = EID; for preloaded demo ballots, ballotId = PRE_0 etc.
+    </li>
+    <li>
+      <b>Homomorphic tally (§23):</b> In production, votes are summed in ciphertext space using homomorphic
+      properties — no individual ballot is ever decrypted during tallying. Only the aggregate total is decrypted at the end.
+      This demo simulates the outcome; individual decryption happens internally for display only.
+    </li>
+    <li>
+      <b>Threshold decryption (§24):</b> Final aggregate decryption uses threshold cryptography with a strict 7-of-10
+      quorum of independent key holders. No single holder possesses the full key. No full private key is ever reconstructed.
+      This configuration assumes strong logistical coordination, mandatory participation protocols, and operational
+      redundancy sufficient to avoid institutional deadlock. This demo simulates the ceremony; internally a single RSA key is used.
     </li>
   </ul>
 
-  <h3>The demo limitation — where the private key lives</h3>
-
+  <h3>Demo limitations — what this page cannot replicate</h3>
   <div class="how-to-break">
-    <b>How to "break" this demo:</b><br>
-    1. Open DevTools (F12) &rarr; Application &rarr; Local Storage &rarr; this page<br>
-    2. Find the key named <code>electionPrivateKey</code> — that is the RSA private key as a JWK.<br>
-    3. Copy it into the console and run:<br>
+    <b>Private key in localStorage — the only intentional vulnerability:</b><br>
+    Open DevTools (F12) &rarr; Application &rarr; Local Storage &rarr; find <code>electionPrivateKey</code>.<br>
+    Copy it into the console and run:<br>
     <code>&nbsp;&nbsp;const pk = await crypto.subtle.importKey("jwk", &lt;paste JWK&gt;, {name:"RSA-OAEP", hash:"SHA-256"}, false, ["decrypt"]);</code><br>
     <code>&nbsp;&nbsp;const plain = await crypto.subtle.decrypt({name:"RSA-OAEP"}, pk, Uint8Array.from(atob(&lt;encrypted&gt;), c=&gt;c.charCodeAt(0)));</code><br>
     <code>&nbsp;&nbsp;new TextDecoder().decode(plain); // reveals the vote</code><br><br>
     This works <b>only because there is no server</b>. The private key had nowhere else to go.
     The public key being visible is <em>not</em> a vulnerability — RSA public keys are always public.
   </div>
+  <ul>
+    <li><b>ZKP is a hash commitment</b>, not a real ZKP circuit. It is not zero-knowledge in the cryptographic sense.
+    The commitment binds the candidate index to the election identity — the hash itself does not reveal the vote,
+    but the index is an input to the hash (simulated proof of validity).</li>
+    <li><b>Threshold is a UI simulation.</b> Internally a single RSA key handles all decryption.</li>
+    <li><b>Homomorphic tally is simulated.</b> The demo decrypts individually.</li>
+    <li><b>Device security is simulated.</b> Production requires hardware-backed secure storage (HSM or Secure Enclave).
+    The verification right (<code>revealConsumed</code> flag) lives in plain localStorage and is not hardware-bound (§28).</li>
+    <li><b>Terminal is a browser panel.</b> A real reveal unit proves identity via official certificate, measured boot
+    attestation, and a per-session challenge verified by backend infrastructure (§17). Backend verification of terminal
+    integrity is not present in this demo.</li>
+    <li><b>Consumption uses a client-side localStorage flag</b> in this demo. The session-persistence mechanism
+    (write before display, clear after finalize) approximates interruption-resistant consumption handling for demo purposes, but the flag itself
+    is not hardware-bound or server-verified. In production, the sole authority for recording consumption is the
+    trusted reveal infrastructure (§19).</li>
+  </ul>
 
-  <div class="real-world">
-    <b>What a real system would do differently:</b><br>
-    In a production deployment the RSA key pair would be generated server-side.
-    The public key would be published openly (anyone can encrypt). The private key would
-    never be transmitted to the browser — it lives only in the server's memory or an HSM.
-    After the election closes, the authority decrypts server-side and publishes the plaintext votes
-    alongside a cryptographic proof, so any third party can independently re-tally.
-    Inspecting <code>localStorage</code>, the network tab, or any client-side storage would
-    reveal only ciphertext and the public key — neither of which helps an attacker.
-  </div>
+  <h3>Voting right vs verification right (§9, §13, §19)</h3>
+  <p>Two distinct rights exist per ballot:</p>
+  <ul>
+    <li><b>Voting right (§9):</b> consumed at block finalization — when the ballot is included in the sealed block.
+    After this, the election identity cannot submit another ballot.</li>
+    <li><b>Verification right (§13):</b> created at voting time, device-bound, single-use, non-exportable,
+    non-recoverable. Consumed only when the ballot display cycle completes at the certified verification terminal.
+    If the display does not complete, the right remains unused (§19). Consumed rights cannot be recovered.</li>
+  </ul>
+
+  <h3>Coercion resistance model (§22)</h3>
+  <p>The system reduces vote-buying and coercion risk by preventing durable, transferable proof of how a voter voted:</p>
+  <ul>
+    <li>No ballot reveal on the voter's personal device — ever.</li>
+    <li>Verification occurs only in a certified controlled environment: single-person access, no recording devices,
+    controlled booth or equivalent (§15).</li>
+    <li>Brief display duration with automatic clearing — the ballot is visible for a constrained window only.</li>
+    <li>Single-use verification right — no replay, no second viewing.</li>
+    <li>No exportable proof path — nothing leaves the reveal chamber.</li>
+  </ul>
+  <p><em>Goal: a voter can verify their own ballot but cannot reliably prove to a third party what they voted.</em></p>
+
+  <h3>Verification infrastructure (§16–21)</h3>
+  <ul>
+    <li>Reveal units are stateless between sessions — no persistent ballot or session data is stored. All local reveal
+    state is destroyed after each session (§16, §21).</li>
+    <li>Units are fully interchangeable. No single unit is critical infrastructure (§16).</li>
+    <li>The reveal model is semi-online: authorization is online, reveal runs locally, completion is synchronized
+    afterward (§20). No live plaintext ballot transfer occurs during the display cycle.</li>
+    <li>Consumption is recorded only when the ballot display completes and the reveal monitor shuts down (§19).
+    In production, the reveal infrastructure is the sole authority — the client never declares consumption.
+    This demo approximates interruption-resistant consumption handling for demo purposes: the session is
+    persisted before display begins and cleared only after finalization, so a page refresh cannot bypass
+    consumption.</li>
+    <li>The consumption registry is ephemeral — active only during the 1-year verification window,
+    then decommissioned (§19, §30).</li>
+  </ul>
+
+  <h3>Device security and lifecycle (§28–30, §35–37)</h3>
+  <ul>
+    <li><b>Hardware-backed storage (§28):</b> in production, verification rights are stored in hardware-backed
+    secure storage (HSM / Secure Enclave) and are non-exportable.</li>
+    <li><b>Lost device (§28):</b> a lost device permanently destroys any unused current-election verification
+    rights bound to it. There is no recovery mechanism.</li>
+    <li><b>Device migration (§36):</b> migration through an official process immediately invalidates the old device.
+    Current-election verification rights do not migrate and are permanently lost.</li>
+    <li><b>Re-enrollment (§35):</b> official re-enrollment permanently disables the previous device for all future
+    system use.</li>
+    <li><b>Election archival (§30):</b> one year after election closure, verification is permanently disabled.
+    The election ledger is archived. The consumption registry is decommissioned. No further ballot verification
+    is possible.</li>
+  </ul>
+
+  <h3>Physical vs digital separation (§26–27)</h3>
+  <p>Digital and physical voting are strictly separated channels. A citizen may use only one. Entering official
+  digital enrollment immediately and irreversibly disables the physical voting channel for that citizen.
+  This commitment cannot be undone.</p>
+
+  <h3>Audit logging compliance (§31)</h3>
+  <p>The system event log records only: terminal or reveal unit identifier, timestamp, and session outcome
+  (authorized, consumed, cleared). The log must never contain citizen identity, vote content, readable ballot
+  linkage, or data sufficient to reconstruct who verified what. This demo's system log complies — no voter name,
+  candidate choice, or EID-to-vote mapping is ever written to the log.</p>
+
+  <h3>Verification steps — open standard (§25)</h3>
+  <ol>
+    <li>Confirm each ballot's election identity (EID) appears in the sealed block with status FINAL.</li>
+    <li>Inspect the simulated ZKP field as a demo placeholder for a real publicly verifiable ballot-validity proof. In this prototype, the ZKP field is a private hash commitment rather than a real zero-knowledge proof (§11).</li>
+    <li>Recompute <code>SHA-256(id + encryptedVote + timestamp)</code> for each entry and confirm it matches the published hash.</li>
+    <li>After the threshold decryption ceremony (7/10 key holders), sum the decrypted vote totals independently to reproduce the tally.</li>
+    <li>No backend trust is required at any step — all inputs are publicly available on the ledger (§25).</li>
+  </ol>
 
   <h3>Live key inspector</h3>
   <div class="transparency-box" id="keyInspector">Initialising…</div>
-
-  <h3>Verification steps (open standard)</h3>
-  <ol>
-    <li>Record the ledger entry: <code>(id, encryptedVote, hash)</code></li>
-    <li>Recompute hash = SHA-256(id + encryptedVote + timestamp) and confirm it matches the published value.</li>
-    <li>After the election closes and the authority publishes the private key: decrypt each entry and confirm the plaintext vote.</li>
-    <li>Sum all decrypted votes independently to reproduce the tally without trusting the authority's count.</li>
-  </ol>
 
 </div>
 
@@ -638,7 +797,7 @@ const CANDIDATES = [
 
 const REVEAL_DURATION = 31536000 * 1000;
 const ELECTION_DURATION = 86400 * 1000;
-const TERMINAL_DISPLAY_DURATION = 15000;
+const TERMINAL_DISPLAY_DURATION = 20000;
 
 // ===================== DEVICE IDENTITY (simulated) =====================
 function generateOne(){
@@ -647,6 +806,13 @@ function generateOne(){
 }
 const DEVICE_ID = localStorage.getItem("deviceId") ||
   (() => { const id = generateOne(); localStorage.setItem("deviceId", id); return id; })();
+
+// Long-term citizen key (§1) — semantic alias for DEVICE_ID in this demo
+const CITIZEN_KEY = DEVICE_ID;
+
+// Election ID — one per election, cleared on reset → new EID each election (§2)
+const ELECTION_ID = localStorage.getItem("electionId") ||
+  (() => { const id = generateOne(); localStorage.setItem("electionId", id); return id; })();
 
 // ===================== STORAGE =====================
 function getLedger(){ return JSON.parse(localStorage.getItem("ledger")||"[]"); }
@@ -669,7 +835,17 @@ let _publicKey  = null;
 let _privateKey = null;
 let _countdownInterval = null;
 let _electionCountdownInterval = null;
+let _terminalCountdownInterval = null;
 let _terminalSession = null;
+let _electionIdentity = null;
+
+// ===================== ELECTION IDENTITY (§2–3) =====================
+async function getElectionIdentity(){
+  if(_electionIdentity) return _electionIdentity;
+  const raw = await sha256hex(CITIZEN_KEY + ELECTION_ID);
+  _electionIdentity = "EID_" + raw.substring(0, 20).toUpperCase();
+  return _electionIdentity;
+}
 
 async function getKeyPair(){
   if(_publicKey && _privateKey) return { publicKey: _publicKey, privateKey: _privateKey };
@@ -721,11 +897,7 @@ async function sha256hex(str){
 
 // ===================== UTIL =====================
 function randomName(){
-  document.getElementById("name").value = "Voter_" + Math.floor(Math.random()*10000);
-}
-
-function genId(){
-  return "TID_" + Math.random().toString(36).substring(2,8).toUpperCase();
+  document.getElementById("name").value = "Demo_" + Math.floor(Math.random()*10000);
 }
 
 function showStatus(msg, color, duration){
@@ -783,6 +955,10 @@ function renderTerminal(){
   const el = document.getElementById("verificationTerminal");
   if(!el) return;
 
+  // Clear any existing countdown tick
+  clearInterval(_terminalCountdownInterval);
+  _terminalCountdownInterval = null;
+
   if(!_terminalSession || !_terminalSession.active){
     el.innerHTML = `<span class="vt-status">[ IDLE — no active session ]</span>`;
     return;
@@ -797,19 +973,27 @@ function renderTerminal(){
     ? `<span class="vt-pass">&#10003; HASH VERIFIED — ledger entry is intact</span>`
     : `<span class="vt-fail">&#10007; HASH MISMATCH — ledger may be tampered</span>`;
 
+  const remSec = () => Math.max(0, Math.ceil((s.displayEndsAt - Date.now()) / 1000));
+
   el.innerHTML =
-`<span class="vt-label">SESSION STATUS  </span><span class="vt-value">ACTIVE</span>
+`<span class="vt-label">TERMINAL CERT   </span><span class="vt-value">${s.termCertHash || "—"} (simulated, §17)</span>
+<span class="vt-label">BOOT ATTEST     </span><span class="vt-value">${s.bootAttestation || "—"} (simulated, §17)</span>
+<span class="vt-label">SESSION NONCE   </span><span class="vt-value">${s.sessionNonce || "—"} (§18)</span>
+<span class="vt-label">PAIRING         </span><span class="vt-value">VERIFIED \u2014 one-time nonce matched (§18)</span>
+<span class="vt-label">SESSION STATUS  </span><span class="vt-value">ACTIVE</span>
 <span class="vt-label">BALLOT ID       </span><span class="vt-value">${s.ballotId}</span>
 <span class="vt-label">REVEALED VOTE   </span><span class="vt-value">${s.plainVote}</span>
 <span class="vt-label">INTEGRITY       </span>${hashLine}
 <span class="vt-label">SESSION OPENED  </span><span class="vt-value">${timeStr}</span>
-<span class="vt-status">Auto-clearing in ${Math.ceil(TERMINAL_DISPLAY_DURATION / 1000)}s…</span>`;
-}
+<span id="vt-countdown" class="vt-status">Auto-clearing in ${remSec()}s…</span>
+<span class="vt-status" style="font-size:.85em">Demo: extended display duration. In production this window is intentionally shorter (§22).</span>`;
 
-function clearTerminalSession(){
-  _terminalSession = null;
-  renderTerminal();
-  logSystem("Terminal session cleared", "amber");
+  // Live countdown — updates the label every second
+  _terminalCountdownInterval = setInterval(() => {
+    const cdEl = document.getElementById("vt-countdown");
+    if(cdEl) cdEl.textContent = "Auto-clearing in " + remSec() + "s\u2026";
+    else { clearInterval(_terminalCountdownInterval); _terminalCountdownInterval = null; }
+  }, 1000);
 }
 
 // ===================== INIT =====================
@@ -828,14 +1012,48 @@ async function init(){
     setElectionEndsAt(Date.now() + ELECTION_DURATION);
   }
 
+  // §7: Remove stale pending ballots from a previous interrupted session
+  const stale = getLedger();
+  const hadStale = stale.some(x => x.owned && x.status === "pending");
+  if(hadStale){
+    const cleaned = stale.filter(x => !(x.owned && x.status === "pending"));
+    setLedger(cleaned);
+    logSystem("Stale pending ballot removed — previous submission was interrupted (§7)", "amber");
+  }
+
+  // Populate election identity display (§2)
+  const myEID = await getElectionIdentity();
+  localStorage.setItem("cachedEID", myEID);
+  const eidEl = document.getElementById("eidValue");
+  if(eidEl) eidEl.textContent = myEID;
+
   renderCandidates();
   renderLedger();
   renderMyVotes();
+  renderVotingAvailability();
   renderStatus();
   await renderTally();
   randomName();
   renderKeyInspector();
+
+  // §19: Restore terminal session interrupted by page refresh
+  const savedSession = loadTerminalSession();
+  if(savedSession && savedSession.active){
+    const remaining = savedSession.displayEndsAt - Date.now();
+    _terminalSession = savedSession;
+    if(remaining > 0){
+      // Display window still open — resume and schedule finalization
+      logSystem("Terminal session restored after page reload (§19, demo persistence)", "blue");
+      setTimeout(() => finalizeVerificationSession(savedSession.ballotId), remaining);
+    } else {
+      // Display window already elapsed — finalize immediately (consume right now)
+      logSystem("Terminal session finalized on reload after elapsed display window (§19)", "amber");
+      finalizeVerificationSession(savedSession.ballotId);
+    }
+  }
+
   renderTerminal();
+  renderThresholdPanel(isClosed() ? "met" : "dormant");
   renderElectionCountdown();
   maybeStartAutoClose();
   updatePhoneClock();
@@ -846,12 +1064,14 @@ async function init(){
 async function preload(){
   const l = [];
   for(let i = 0; i < 3; i++){
-    const vote = CANDIDATES[Math.floor(Math.random()*CANDIDATES.length)];
-    const enc  = await encryptVote(vote);
-    const t    = Date.now() - Math.floor(Math.random()*60000);
-    const id   = "PRE_" + i;
-    const h    = await sha256hex(id + enc + t);
-    l.push({ tempId:id, encrypted:enc, timestamp:t, hash:h, owned:false });
+    const vote     = CANDIDATES[Math.floor(Math.random()*CANDIDATES.length)];
+    const enc      = await encryptVote(vote);
+    const t        = Date.now() - Math.floor(Math.random()*60000);
+    const id       = "PRE_" + i;
+    const h        = await sha256hex(id + enc + t);
+    const zkpNonce = generateOne().substring(0, 16);
+    const zkp      = await sha256hex(id + String(CANDIDATES.indexOf(vote)) + zkpNonce);
+    l.push({ tempId:id, encrypted:enc, timestamp:t, hash:h, zkp, status:"final", owned:false });
   }
   setLedger(l);
 }
@@ -863,6 +1083,47 @@ function renderCandidates(){
   CANDIDATES.forEach(c => {
     d.innerHTML += `<label><input type="radio" name="vote" value="${c}"> ${c}</label>`;
   });
+}
+
+function renderVotingAvailability(){
+  const eid    = _electionIdentity || localStorage.getItem("cachedEID");
+  const ledger = getLedger();
+  const entry  = eid ? ledger.find(e => e.tempId === eid) : null;
+  const closed = isClosed();
+
+  const formEl   = document.getElementById("votingForm");
+  const noVoteEl = document.getElementById("noVoteAvailable");
+  const detailEl = document.getElementById("noVoteDetail");
+  if(!formEl || !noVoteEl) return;
+
+  const headingEl = document.getElementById("phoneMainHeading");
+
+  if(entry){
+    formEl.style.display   = "none";
+    noVoteEl.style.display = "block";
+    if(headingEl) headingEl.textContent = "Election Status";
+    if(detailEl){
+      if(entry.status === "pending"){
+        detailEl.innerHTML =
+          "Your ballot is awaiting final block inclusion.<br>" +
+          "Verification will become available after election closure.";
+      } else {
+        detailEl.innerHTML =
+          "Your ballot for this election has already been finalized.<br>" +
+          "Verification will become available after election closure.";
+      }
+    }
+  } else if(closed){
+    formEl.style.display   = "none";
+    noVoteEl.style.display = "block";
+    if(headingEl) headingEl.textContent = "Election Status";
+    if(detailEl) detailEl.innerHTML =
+      "This election is closed.<br>No voting action is available.";
+  } else {
+    formEl.style.display   = "";
+    noVoteEl.style.display = "none";
+    if(headingEl) headingEl.textContent = "Cast Your Vote";
+  }
 }
 
 function renderStatus(){
@@ -904,8 +1165,9 @@ async function vote(){
   if(isClosed()){ showStatus("Election is closed."); return; }
 
   const ledger = getLedger();
-  if(ledger.some(x => x.owned)){
-    showStatus("This demo device has already cast its ballot.");
+  const myEID = await getElectionIdentity();
+  if(ledger.some(x => x.tempId === myEID)){
+    showStatus("This election identity has already cast its ballot (§4).");
     return;
   }
 
@@ -916,40 +1178,61 @@ async function vote(){
   voteBtn.disabled = true;
 
   try {
-    const tempId  = genId();
+    const tempId  = myEID;  // §2: election identity is the ballot ID
     const voteVal = sel.value;
     const time    = Date.now();
 
+    // Phase 1 — Encrypt
     document.getElementById("status").innerText = "Encrypting with public key…";
 
-    const enc = await encryptVote(voteVal);
-    const h   = await sha256hex(tempId + enc + time);
-    logSystem("Vote encrypted with public key", "blue");
+    const enc     = await encryptVote(voteVal);
+    const h       = await sha256hex(tempId + enc + time);
 
-    document.getElementById("status").innerText = "Waiting for publication…";
-    await new Promise(r => setTimeout(r, 1200));
+    // ZKP: proves exactly one valid choice is encoded — binds identity + candidate + nonce (§11, simulated)
+    const zkpNonce = generateOne();
+    const zkp      = await sha256hex(tempId + String(CANDIDATES.indexOf(voteVal)) + zkpNonce);
 
+    logSystem("Vote encrypted + ZKP computed (§11, simulated)", "blue");
+
+    // Phase 2 — Broadcast as pending
+    document.getElementById("status").innerText = "Broadcasting ballot to ledger…";
     ledger.push({
       tempId,
       encrypted: enc,
       timestamp: time,
       hash: h,
+      zkp,
+      status: "pending",
       owned: true,
+      // revealConsumed = verification right (§13), distinct from voting right (§9)
       revealConsumed: false
     });
-
     setLedger(ledger);
-    logSystem("Ballot added to public ledger", "green");
-    document.getElementById("status").innerText = "Vote published \u2713 " + tempId;
+    renderLedger();
+    renderVotingAvailability(); // hide form as soon as pending ballot exists
+    logSystem("Ballot broadcast — awaiting block inclusion (§6)", "amber");
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Phase 3 — Block inclusion (finalize)
+    document.getElementById("status").innerText = "Awaiting block inclusion…";
+    const ledger2 = getLedger();
+    const entry = ledger2.find(x => x.tempId === tempId);
+    if(entry) entry.status = "final";
+    setLedger(ledger2);
+    renderLedger();
+    logSystem("Ballot finalized in block \u2713", "green");
+    // Voting right consumed at block finalization (§9)
+    renderMyVotes();
+    renderVotingAvailability();
+    await renderTally();
+    renderKeyInspector();
+
+    // Phase 4 — Confirm
+    document.getElementById("status").innerText = "Ballot finalized \u2713 " + tempId;
     setTimeout(() => {
       const s = document.getElementById("status");
       if(s) s.innerText = "";
     }, 3000);
-
-    renderLedger();
-    renderMyVotes();
-    await renderTally();
-    renderKeyInspector();
   } finally {
     voteBtn.disabled = false;
   }
@@ -958,11 +1241,16 @@ async function vote(){
 // ===================== LEDGER =====================
 function renderLedger(){
   const l = getLedger();
-  let html = "<table><tr><th>ID</th><th>Encrypted (RSA-OAEP)</th><th>SHA-256 Hash</th></tr>";
+  let html = "<table><tr><th>ID</th><th>Status</th><th>Encrypted (RSA-OAEP)</th><th>ZKP (simulated)</th><th>SHA-256 Hash</th></tr>";
   l.forEach(x => {
+    const statusBadge = (x.status === "pending")
+      ? `<span class="badge-pending">PENDING</span>`
+      : `<span class="badge-final">FINAL</span>`;
     html += `<tr>
       <td>${x.tempId}</td>
+      <td>${statusBadge}</td>
       <td>${x.encrypted.substring(0,24)}…</td>
+      <td>${x.zkp ? x.zkp.substring(0,20)+"…" : "—"}</td>
       <td>${x.hash.substring(0,24)}…</td>
     </tr>`;
   });
@@ -978,24 +1266,21 @@ function renderMyVotes(){
   const l = getLedger().filter(x => x.owned);
   const closed = isClosed();
   const globalDeadline = parseInt(localStorage.getItem("verificationEndsAt") || "0", 10);
+  const hasUnconsumed = l.some(x => !x.revealConsumed);
+  const rem = Math.ceil((globalDeadline - Date.now()) / 1000);
   let html = "";
 
-  if(closed && globalDeadline){
-    const now = Date.now();
-    const rem = Math.ceil((globalDeadline - now) / 1000);
-    const bannerText = rem > 0
-      ? "Verification window: " + rem + "s remaining"
-      : "Verification window: expired";
-    html += `<div class="reveal-timer ${rem > 0 ? "ticking" : "expired"}" id="global-reveal-timer" style="margin-bottom:.5em">${bannerText}</div>`;
+  if(closed && globalDeadline && rem > 0 && hasUnconsumed){
+    html += `<div class="reveal-timer ticking" id="global-reveal-timer" style="margin-bottom:.5em">Verification window: ${rem}s remaining</div>`;
   }
 
   l.forEach(x => {
     let btnDisabled = " disabled";
     let btnLabel = "After election closes";
+    const globalRem = Math.ceil((globalDeadline - Date.now()) / 1000);
 
     if(closed){
-      const rem = Math.ceil((globalDeadline - Date.now()) / 1000);
-      if(rem > 0){
+      if(globalRem > 0){
         if(x.revealConsumed){
           btnLabel = "Consumed";
         } else {
@@ -1007,16 +1292,33 @@ function renderMyVotes(){
       }
     }
 
+    let stateText;
+    if(!closed){
+      stateText = "Verification unavailable until election closes";
+    } else if(globalRem > 0){
+      stateText = x.revealConsumed ? "Verification right consumed" : "Verification available";
+    } else {
+      stateText = "Verification window expired";
+    }
+
+    const consumedNote = x.revealConsumed
+      ? `<div style="font-size:.75em;color:#999;margin-top:.3em">
+          Consumption recorded at display completion by reveal infrastructure (§19)<br>
+          <em>Client flag is demo-only — authoritative record held by reveal unit</em>
+        </div>`
+      : "";
     html += `<div class="my-vote-item" id="vote-card-${x.tempId}">
-      <b>ID:</b> ${x.tempId}<br>
+      <b>Election Identity:</b> ${x.tempId}<br>
+      <div style="font-size:.8em;color:#999;margin:.3em 0 .3em">${stateText}</div>
       <button id="verify-btn-${x.tempId}" onclick="startVerificationSession('${x.tempId}')"${btnDisabled}>${btnLabel}</button>
+      ${consumedNote}
     </div>`;
   });
 
   document.getElementById("myVotes").innerHTML =
     html || "<i style='color:#999;font-size:.9em'>No votes cast yet.</i>";
 
-  if(closed && globalDeadline && Date.now() < globalDeadline){
+  if(closed && globalDeadline && rem > 0 && hasUnconsumed){
     startCountdown(l);
   }
 }
@@ -1069,6 +1371,12 @@ function startCountdown(ownedVotes){
 
 // ===================== VERIFY =====================
 async function startVerificationSession(id){
+  // Concurrent session guard (§18)
+  if(_terminalSession && _terminalSession.active){
+    showStatus("A terminal session is already in progress.");
+    return;
+  }
+
   const l = getLedger();
   const v = l.find(x => x.tempId === id);
   if(!v)          { showStatus("Entry not found."); return; }
@@ -1080,36 +1388,106 @@ async function startVerificationSession(id){
 
   logSystem("Verification session authorized", "green");
 
-  v.revealConsumed = true;
-  setLedger(l);
-  logSystem("Verification right consumed", "amber");
-  renderMyVotes();
+  // Terminal attestation (§17–18, simulated)
+  const sessionNonce    = generateOne().substring(0, 8).toUpperCase();
+  const termCertHash    = (await sha256hex("TERMINAL-CERT-v1")).substring(0, 16).toUpperCase();
+  const bootAttestation = (await sha256hex("BOOT-" + sessionNonce)).substring(0, 16).toUpperCase();
+  logSystem("Terminal attestation verified — cert, boot, nonce (§17, simulated)", "blue");
 
   const plain      = await decryptVote(v.encrypted);
   const recomputed = await sha256hex(v.tempId + v.encrypted + v.timestamp);
   const hashMatch  = recomputed === v.hash;
 
+  const openedAt = Date.now();
   _terminalSession = {
-    active:    true,
-    ballotId:  v.tempId,
-    plainVote: plain,
+    active:        true,
+    ballotId:      v.tempId,
+    plainVote:     plain,
     hashMatch,
-    openedAt:  Date.now()
+    openedAt,
+    displayEndsAt: openedAt + TERMINAL_DISPLAY_DURATION,
+    sessionNonce,
+    termCertHash,
+    bootAttestation
   };
 
+  saveTerminalSession(); // persist before display — refresh cannot bypass (§19)
   renderTerminal();
   logSystem("Terminal display opened", "blue");
   showStatus("Verification session started — see terminal.", "#1a7a1a");
-  setTimeout(() => clearTerminalSession(), TERMINAL_DISPLAY_DURATION);
+  // Consumption recorded only AFTER display completes (§19)
+  setTimeout(() => finalizeVerificationSession(id), TERMINAL_DISPLAY_DURATION);
+}
+
+function finalizeVerificationSession(id){
+  // Consumption recorded only after display completes (§19)
+  const l = getLedger();
+  const v = l.find(x => x.tempId === id);
+  if(v && !v.revealConsumed){
+    v.revealConsumed = true;
+    setLedger(l);
+    logSystem("Verification right consumed — display cycle complete (§19)", "amber");
+  }
+  clearInterval(_terminalCountdownInterval);  // stop live countdown tick
+  _terminalCountdownInterval = null;
+  clearTerminalSession(); // remove persisted session — right is now consumed (§19)
+  _terminalSession = null;
+  renderTerminal();
+  renderMyVotes();
+  renderVotingAvailability();
+}
+
+// ===================== TERMINAL SESSION PERSISTENCE (§19) =====================
+function saveTerminalSession(){
+  if(_terminalSession) localStorage.setItem("terminalSession", JSON.stringify(_terminalSession));
+}
+function loadTerminalSession(){
+  try { return JSON.parse(localStorage.getItem("terminalSession") || "null"); } catch(e){ return null; }
+}
+function clearTerminalSession(){
+  localStorage.removeItem("terminalSession");
+}
+
+// ===================== THRESHOLD PANEL (§24) =====================
+function renderThresholdPanel(state){
+  const el = document.getElementById("thresholdPanel");
+  if(!el) return;
+  const holders = Array.from({length:10}, (_,i) => "K-" + String(i+1).padStart(2,"0"));
+  if(!state || state === "dormant"){
+    el.innerHTML = holders.map(k =>
+      `<span class="ks-dormant">\u25CF ${k}  Dormant</span>`).join("\n") +
+      `\n<span class="threshold-note">Awaiting election closure \u2014 private key shares dormant (§24)</span>`;
+    return;
+  }
+  if(state === "collecting"){
+    el.innerHTML = `<span class="ks-dormant">Collecting key shares\u2026</span>`;
+    return;
+  }
+  if(state === "met"){
+    el.innerHTML =
+      holders.slice(0,7).map(k => `<span class="ks-contributed">\u25CF ${k}  Contributed</span>`).join("\n") + "\n" +
+      holders.slice(7).map(k =>  `<span class="ks-absent">\u25CB ${k}  Absent</span>`).join("\n") +
+      `\n<span class="threshold-met">Threshold met (7/10) \u2014 Aggregate decryption authorized (§24)</span>` +
+      `\n<span class="threshold-note">Simulation only \u2014 demo uses single RSA key internally</span>`;
+  }
 }
 
 // ===================== CLOSE =====================
-function closeElection(){
+async function closeElection(){
   if(isClosed()) return;
   clearInterval(_electionCountdownInterval);
   _electionCountdownInterval = null;
   clearInterval(_countdownInterval);
   _countdownInterval = null;
+
+  // Promote any pending ballots to final before sealing
+  const ledgerAtClose = getLedger();
+  let finalizedCount = 0;
+  ledgerAtClose.forEach(x => {
+    if(x.status === "pending"){ x.status = "final"; x.sealedAt = Date.now(); finalizedCount++; }
+  });
+  setLedger(ledgerAtClose);
+
   const publishedAt = Date.now();
   setClosed(true);
   localStorage.setItem("resultsPublishedAt", String(publishedAt));
@@ -1117,8 +1495,28 @@ function closeElection(){
   renderStatus();
   renderElectionCountdown();
   renderMyVotes();
+
+  // Sealed block banner
+  const sealedEl = document.getElementById("sealedBlock");
+  if(sealedEl){
+    sealedEl.className = "sealed-block-banner";
+    sealedEl.textContent =
+      "\u25A0 SEALED BLOCK \u00B7 " + new Date().toISOString() +
+      " \u00B7 " + ledgerAtClose.filter(x => x.status === "final").length + " ballots finalized";
+  }
+  const dupNote = document.getElementById("duplicateNote");
+  if(dupNote) dupNote.style.display = "block";
+  logSystem("Sealed block published \u2014 " + ledgerAtClose.filter(x => x.status === "final").length + " ballots finalized", "green");
+
+  // Threshold decryption ceremony (§24) — simulated
+  renderThresholdPanel("collecting");
+  await new Promise(r => setTimeout(r, 1500));
+  renderThresholdPanel("met");
+  logSystem("Threshold 7/10 reached \u2014 aggregate decryption authorized (§24, simulated)", "green");
+
   logSystem("Private key used to compute tally", "amber");
-  renderTally();
+  await renderTally();
+  renderLedger();
   renderKeyInspector();
 }
 
@@ -1145,7 +1543,9 @@ async function renderTally(){
     }
   }
 
-  let out = "<table><tr><th>Candidate</th><th>Votes</th></tr>";
+  let out = `<div class="tally-method-note">Aggregation method: simulated homomorphic accumulation (§23).<br>
+In production: votes are summed in ciphertext space \u2014 no individual ballot is decrypted during tallying. Demo decrypts individually for display only.</div>`;
+  out += "<table><tr><th>Candidate</th><th>Votes</th></tr>";
   for(const k in count){
     out += `<tr><td>${k}</td><td>${count[k]}</td></tr>`;
   }
@@ -1167,8 +1567,21 @@ async function renderKeyInspector(){
   const pub  = JSON.parse(rawPub);
   const priv = JSON.parse(rawPriv);
 
+  const eid = await getElectionIdentity();
   box.innerHTML =
-`<span class="safe">PUBLIC KEY — safe to share openly (used by voters to encrypt)</span>
+`<span class="safe">VOTER IDENTITY (§1–3)</span>
+<span class="label">Citizen key (deviceId):</span>
+<span class="value">${CITIZEN_KEY.substring(0,40)}…</span>
+<span class="note">// Long-term device-bound identifier. Preserved across elections. Never revealed on ledger.</span>
+<span class="label">Election ID:</span>
+<span class="value">${ELECTION_ID.substring(0,40)}…</span>
+<span class="note">// Unique per election. Cleared on reset so the next election gets a fresh EID.</span>
+<span class="label">Election Identity (EID):</span>
+<span class="value">${eid}</span>
+<span class="note">// EID = "EID_" + SHA-256(citizenKey ∥ electionId)[0:20].toUpperCase()
+// This is the ballot ID visible on the public ledger — unlinkable to citizen key without electionId.</span>
+
+<span class="safe">PUBLIC KEY — safe to share openly (used by voters to encrypt)</span>
 <span class="label">Algorithm:</span> <span class="value">RSA-OAEP / SHA-256</span>
 <span class="label">Modulus (n, first 60 chars):</span>
 <span class="value">${pub.n.substring(0,60)}…</span>
@@ -1194,16 +1607,30 @@ function resetAll(){
   _countdownInterval = null;
   clearInterval(_electionCountdownInterval);
   _electionCountdownInterval = null;
+  clearInterval(_terminalCountdownInterval);
+  _terminalCountdownInterval = null;
+  clearTerminalSession(); // clear persisted session (§19)
   _terminalSession = null;
+  _electionIdentity = null;  // §2: new election → new EID
   renderTerminal();
   const sysLog = document.getElementById("systemLog");
   if(sysLog) sysLog.innerHTML = "";
+  const eidEl = document.getElementById("eidValue");
+  if(eidEl) eidEl.textContent = "—";
+  const sealedEl2 = document.getElementById("sealedBlock");
+  if(sealedEl2){ sealedEl2.textContent = ""; sealedEl2.className = ""; }
+  const dupNote2 = document.getElementById("duplicateNote");
+  if(dupNote2) dupNote2.style.display = "none";
+  renderThresholdPanel("dormant");
   _publicKey  = null;
   _privateKey = null;
+  // Clear all election state; preserve only deviceId (long-term citizen key, §1)
+  const savedDeviceId = localStorage.getItem("deviceId");
   localStorage.clear();
+  if(savedDeviceId) localStorage.setItem("deviceId", savedDeviceId);
   document.getElementById("status").innerText = "";
   document.getElementById("status").style.color = "#007aff";
-  init();
+  location.reload();  // full reload so new ELECTION_ID constant is re-evaluated
 }
 
 // ===================== START =====================
