@@ -69,8 +69,6 @@ https://philchevaillot.github.io/public-verifiable-voting/
 > Note: The demo is simplified for clarity and runs fully client-side.  
 > In a real deployment, private keys and verification infrastructure would be handled outside the browser.
 
----
-
 Demo Reality Check
 
 Implemented in the demo:
@@ -99,7 +97,7 @@ Quick Demo (30 seconds)
 	5.	Authorize verification → see your vote on the terminal
 	6.	Notice the verification right is consumed and cannot be reused
 
-⸻
+---
 
 ## How It Works
 
